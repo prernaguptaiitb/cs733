@@ -56,6 +56,7 @@ func (sm *StateMachine) AppendEntriesResponseLeader (msg AppendEntriesResponseEv
 			for k := sm.logCommitIndex+1 ; k <= maxIndex ; k++ {
 				action = append(action, Commit{index : k , data : sm.log[k].cmd, err : nil})
 			}
+			sm.logCommitIndex = maxIndex
 		}
 	}
 	return action
