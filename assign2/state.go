@@ -18,6 +18,7 @@ type StateMachine struct{
 	logCommitIndex int 
 	nextIndex	[] int
 	matchIndex	[] int
+	yesVotesNum int
 }
 
 type LogEntry struct{
@@ -57,8 +58,8 @@ func (sm *StateMachine) ProcessEvent (ev interface{}) {
 			cmd := ev.(VoteResponseEvent)
 			fmt.Printf("%v\n",cmd)
 		
-		case Timeout:
-			cmd := ev.(Timeout)
+		case TimeoutEvent:
+			cmd := ev.(TimeoutEvent)
 			fmt.Printf("%v\n",cmd)
 		
 		// other cases

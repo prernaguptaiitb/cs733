@@ -19,9 +19,9 @@ func (sm *StateMachine) Append (msg AppendEvent) ([] interface{}){
 
 
 func (sm *StateMachine) AppendLeader (msg AppendEvent) ([] interface{}){
-	/*action [] interface{}
+	var action [] interface{}
 	// append data to leaders local log
-	sm.logCurrentIndex++
+	/*sm.logCurrentIndex++
 	temp := LogEntry{term : sm.currentTerm, cmd : data }
 	action = append(action,LogStore { index : sm.logCurrentIndex , logData : temp})
 	//send AppendEntriesRequest to all peers
@@ -38,16 +38,19 @@ set sm.logCommitIndex = N
 else 
 	Commit(sm.logCommitIndex, data, error)
 */
+	return action
 }
 
 
 func (sm *StateMachine) AppendFollower (msg AppendEvent) ([] interface{}){
-
+	var action []interface{}
+	return action
 }
 
 
 func (sm *StateMachine) AppendCandidate (msg AppendEvent) ([] interface{}){
-
+	var action []interface{}
+	return action
 }
 
 

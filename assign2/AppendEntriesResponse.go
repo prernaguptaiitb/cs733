@@ -33,8 +33,30 @@ func (sm *StateMachine) AppendEntriesResponseLeader (msg AppendEntriesResponseEv
 		//successfully appended at the follower
 		sm.nextIndex[msg.fromId] = sm.logCurrentIndex+1
 		sm.matchIndex[msg.fromId] = sm.logCurrentIndex
-		//update matchIndex and send commit 
-
+		//update matchIndex and send commit
+		maxIndex:=-1
+		//check if we can commit something
+		for i :=0; i<len(sm.myconfig.peer); i++ { 
+			numYes:=0
+			if(sm.matchIndex[i] > sm.logCommitIndex && sm.matchIndex[i]>maxIndex && sm.log[sm.matchIndex[i]].term == sm.currentTerm ){  
+				for j:=0; j<len(sm.myconfig.peer); j++ { 
+					if(sm.matchIndex[j] >= sm.matchIndex[i] ){
+						numYes+=1
+					}
+				}
+				if numYes >= (len(sm.myconfig.peer)/2 +1) {
+					if sm.matchIndex[i] > maxIndex{
+						maxIndex = sm.matchIndex[i]
+					}
+				}
+			} 
+		}
+		// If yes, the commit and sent commit msg to layer above 
+		if maxIndex != -1 {
+			for k := sm.logCommitIndex+1 ; k <= maxIndex ; k++ {
+				action = append(action, Commit{index : k , data : sm.log[k].cmd, err : nil})
+			}
+		}
 	}
 	return action
 }

@@ -8,7 +8,7 @@ type Send struct{
 type Commit struct{
 	index int
 	data [] byte
-	error string
+	err error
 }
 
 type Alarm struct{
