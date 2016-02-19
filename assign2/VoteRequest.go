@@ -28,12 +28,16 @@ func (sm *StateMachine) VoteRequestLeaderorCandidate (msg VoteRequestEvent) ([] 
 		//if candidate log is at least as up-to-date as this leaders log, then grant vote otherwise not
 		if (sm.log[sm.logCurrentIndex].term < msg.lastLogTerm) || ((sm.log[sm.logCurrentIndex].term == msg.lastLogTerm) && (sm.logCurrentIndex <= msg.lastLogIndex)){
 			//grant vote
-			action = append(action, Send{peerId : msg.candidateId, event : VoteResponseEvent{term : sm.currentTerm, isVoteGranted : true}})
 			sm.votedFor = msg.candidateId
+			
+			action = append(action, Send{peerId : msg.candidateId, event : VoteResponseEvent{term : sm.currentTerm, isVoteGranted : true}})
+			
 		}else{
 			// do not grant vote
+			action = append(action, StateStore{sm.state, sm.currentTerm, sm.votedFor})
 			action = append(action, Send{peerId : msg.candidateId, event : VoteResponseEvent{term : sm.currentTerm, isVoteGranted : false}})
 		}
+		action = append(action, StateStore{sm.state, sm.currentTerm, sm.votedFor})
 		action = append(action, Alarm{t : 200})	
 	}else{
 		// reject vote
@@ -44,18 +48,27 @@ func (sm *StateMachine) VoteRequestLeaderorCandidate (msg VoteRequestEvent) ([] 
 
 func (sm *StateMachine) VoteRequestFollower (msg VoteRequestEvent) ([] interface{}){
 	var action []interface{}
-	if sm.currentTerm < msg.term && (sm.votedFor == 0 /*assuming no server has id=0 */|| sm.votedFor == msg.candidateId) {  
-		sm.currentTerm = msg.term 
-	//if candidate log is at least as up-to-date as this leaders log, then grant vote otherwise not
+	flag := false
+	if (sm.currentTerm == msg.term && (sm.votedFor == 0 /*assuming no server has id=0 */|| sm.votedFor == msg.candidateId)) || (sm.currentTerm < msg.term) {  
+		if sm.currentTerm < msg.term {
+			sm.currentTerm = msg.term 
+			sm.votedFor = 0
+			flag = true
+			}	
+		//if candidate log is at least as up-to-date as this leaders log, then grant vote otherwise not
 		if (sm.log[sm.logCurrentIndex].term < msg.lastLogTerm) || ((sm.log[sm.logCurrentIndex].term == msg.lastLogTerm) && (sm.logCurrentIndex <= msg.lastLogIndex)){
 			// grant vote
-			action = append(action, Send{peerId : msg.candidateId, event : VoteResponseEvent{term : sm.currentTerm, isVoteGranted : true}})
 			sm.votedFor = msg.candidateId
+			flag = true
 			action = append(action, Alarm{t : 200})	
+			action = append(action, Send{peerId : msg.candidateId, event : VoteResponseEvent{term : sm.currentTerm, isVoteGranted : true}})		
 		}else{
 			// do not grant vote
 			action = append(action, Send{peerId : msg.candidateId, event : VoteResponseEvent{term : sm.currentTerm, isVoteGranted : false}})
 		}
+		if flag{
+			action = append(action, StateStore{sm.state, sm.currentTerm, sm.votedFor})
+		}		
 	}else{
 		// reject vote
 		action = append(action, Send{peerId : msg.candidateId, event : VoteResponseEvent{term : sm.currentTerm, isVoteGranted : false}})

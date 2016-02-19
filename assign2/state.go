@@ -10,7 +10,7 @@ type Config struct{
 
 type StateMachine struct{
 	myconfig Config
-	state string
+	state string	//persistent
 	currentTerm int //persistent
 	votedFor int	//persistent
 	log [] LogEntry //persistent
@@ -19,6 +19,7 @@ type StateMachine struct{
 	nextIndex	[] int
 	matchIndex	[] int
 	yesVotesNum int
+	noVotesNum int
 }
 
 type LogEntry struct{

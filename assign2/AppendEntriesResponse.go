@@ -24,6 +24,9 @@ func (sm *StateMachine) AppendEntriesResponseLeader (msg AppendEntriesResponseEv
 			if sm.currentTerm < msg.term {
 				sm.state = "FOLLOWER"
 				sm.currentTerm = msg.term
+				sm.votedFor = 0
+				action = append(action, Alarm{200})
+				action = append(action, StateStore{sm.state, sm.currentTerm, sm.votedFor})
 			}else{	
 				// follower rejected because previous entries didn't match
 				sm.nextIndex[msg.fromId]-=1
@@ -61,11 +64,15 @@ func (sm *StateMachine) AppendEntriesResponseLeader (msg AppendEntriesResponseEv
 	}
 	return action
 }
-func (sm *StateMachine) AppendEntriesResponseFollowerorCandidate (msg AppendEntriesResponseEvent){
+func (sm *StateMachine) AppendEntriesResponseFollowerorCandidate (msg AppendEntriesResponseEvent)([]interface{}){
+	var action [] interface{}
 	//reject the response
 	if msg.term > sm.currentTerm  {
 		sm.currentTerm = msg.term	
+		action = append(action, StateStore{sm.state, sm.currentTerm, sm.votedFor})
 	}
+	return action
+
 }
 
 

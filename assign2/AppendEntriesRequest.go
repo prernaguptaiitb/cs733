@@ -29,6 +29,9 @@ func (sm *StateMachine) AppendEntriesRequestLeaderorCandidate (msg AppendEntries
 		action = append(action,Send{peerId : msg.leaderId, event : AppendEntriesResponseEvent{ fromId : sm.myconfig.myId,term : sm.currentTerm,isSuccessful : false}})
 	}else{
 		//request from valid leader. Update the term, change to follower state and then process RPC
+			if sm.currentTerm < msg.term{
+				sm.votedFor = 0
+			}
 			sm.currentTerm = msg.term
 			sm.state = "FOLLOWER"
 			// call follower function
@@ -45,8 +48,13 @@ func (sm *StateMachine) AppendEntriesRequestFollower (msg AppendEntriesRequestEv
 	
 	}else{
 		//Reset Election Timer
-		action = append(action,Alarm{t : 200})
 		sm.currentTerm = msg.term
+		if sm.currentTerm < msg.term {
+			sm.votedFor = 0
+		}
+		
+		action = append(action,Alarm{t : 200})
+		action = append(action, StateStore{sm.state, sm.currentTerm, sm.votedFor})
 		//Reply false if log doesn’t contain an entry at prevLogIndex whose term matches prevLogTerm 	
 		if( len(sm.log) < msg.prevLogIndex || sm.log[msg.prevLogIndex].term != msg.prevLogTerm ){
 			action = append(action,Send{peerId : msg.leaderId, event : AppendEntriesResponseEvent{ fromId : sm.myconfig.myId,term : sm.currentTerm,isSuccessful : false}})

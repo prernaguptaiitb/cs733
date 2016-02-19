@@ -20,5 +20,8 @@ type LogStore struct{
 	logData LogEntry
 }
 
-
-
+type StateStore struct{
+	state string
+	term int
+	votedFor int
+}
