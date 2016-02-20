@@ -32,11 +32,11 @@ func expectStateMachine(t *testing.T, responsesm StateMachine , expectedsm State
 	}
 	if responsesm.logCommitIndex != expectedsm.logCommitIndex {
 			ok = false
-			errstr += fmt.Sprintf("logCommitIndex mismatch\n")
+			errstr += fmt.Sprintf("logCommitIndex mismatch %v %v\n",responsesm.logCommitIndex,expectedsm.logCommitIndex )
 	}
 	if !reflect.DeepEqual(responsesm.nextIndex, expectedsm.nextIndex) {
 			ok = false
-			errstr += fmt.Sprintf("NextIndex mismatch\n")
+			errstr += fmt.Sprintf("NextIndex mismatch %v %v\n", responsesm.nextIndex, expectedsm.nextIndex)
 	}
 	if !reflect.DeepEqual(responsesm.matchIndex, expectedsm.matchIndex) {
 			ok = false
@@ -142,18 +142,59 @@ func TestFollowerAppendEntriesRequest(t *testing.T){
 	newlog = []LogEntry{{1,[]byte("read")},{2,[]byte("cas")},{4,[]byte("write")},{4,[]byte("delete")}}
 	action=sm.ProcessEvent(AppendEntriesRequestEvent{ term : 4, leaderId : 1 , prevLogIndex : 2 , prevLogTerm : 4 , data : []LogEntry{{4,[]byte("delete")}}, leaderCommitIndex : 1})
 	expectStateMachine(t,sm,StateMachine{myconfig : config, state : "FOLLOWER",currentTerm : 4, votedFor : 0, log : []LogEntry{{1,[]byte("read")},{2,[]byte("cas")},{3,[]byte("delete")}}, logCurrentIndex :2, logCommitIndex:1 }, "Error in FollowerAppendEntriesRequest-case2")
-	expectAction(t, action,[]interface{}{Alarm{200},StateStore{"FOLLOWER",4,0},Send{1,AppendEntriesResponseEvent{4,4,false}}},"Error in FollowerAppendEntriesRequest-case2")
+	expectAction(t, action,[]interface{}{Alarm{200},StateStore{"FOLLOWER",4,0},Send{1,AppendEntriesResponseEvent{4,4,false}}},"Error in FollowerAppendEntriesRequest-case3")
 	
 	// Now suppose previous log term match, then log should be overwritten
 	action=sm.ProcessEvent(AppendEntriesRequestEvent{ term : 4, leaderId : 1 , prevLogIndex : 1 , prevLogTerm : 2 , data : []LogEntry{{4,[]byte("write")},{4,[]byte("delete")}}, leaderCommitIndex : 1})
 	expectStateMachine(t,sm,StateMachine{myconfig : config, state : "FOLLOWER",currentTerm : 4, votedFor : 0, log : newlog, logCurrentIndex :3, logCommitIndex:1 }, "Error in FollowerAppendEntriesRequest-case2")
-	expectAction(t, action,[]interface{}{Alarm{200},StateStore{"FOLLOWER",4,0},LogStore{2,LogEntry{4,[]byte("write")}},LogStore{3,LogEntry{4,[]byte("delete")}}, Send{1,AppendEntriesResponseEvent{4,4,true}}},"Error in append entries request follower")
+	expectAction(t, action,[]interface{}{Alarm{200},StateStore{"FOLLOWER",4,0},LogStore{2,LogEntry{4,[]byte("write")}},LogStore{3,LogEntry{4,[]byte("delete")}}, Send{1,AppendEntriesResponseEvent{4,4,true}}},"Error in FollowerAppendEntriesRequest-case4")
 
 }
-func TestFollowerAppendEntriesRequest(t *testing.T){
+func TestLeaderorCandidateAppendEntriesRequest(t *testing.T){
+	//request from invalid leader
+	config := Config{1, []int{2,3,4,5}}
+	sm := StateMachine{myconfig : config, state : "LEADER",currentTerm : 3, votedFor : 1}
+	action := sm.ProcessEvent(AppendEntriesRequestEvent{term : 2, leaderId : 2 , prevLogIndex : 1 , prevLogTerm : 2 , data : []LogEntry{{3,[]byte("write")}}, leaderCommitIndex : 0})
+	expectStateMachine(t,sm,StateMachine{myconfig : config, state : "LEADER",currentTerm : 3, votedFor : 1},"Error in TestLeaderorCandidateAppendEntriesRequest")
+	expectAction(t,action,[]interface{}{Send{2, AppendEntriesResponseEvent{1,3,false}}},"Error in TestLeaderorCandidateAppendEntriesRequest - case1")
 
+	//request from valid leader
+	sm = StateMachine{myconfig : config, state : "LEADER",currentTerm : 3, votedFor : 1, log : []LogEntry{{1,[]byte("read")},{2,[]byte("cas")}}, logCurrentIndex : 1, logCommitIndex : 1}
+	action = sm.ProcessEvent(AppendEntriesRequestEvent{term : 4, leaderId : 2 , prevLogIndex : 1 , prevLogTerm : 2 , data : []LogEntry{{4,[]byte("write")}}, leaderCommitIndex : 1})
+	expectStateMachine(t,sm,StateMachine{myconfig : config, state : "FOLLOWER",currentTerm : 4, votedFor : 0, log : []LogEntry{{1,[]byte("read")},{2,[]byte("cas")},{4,[]byte("write")}}, logCurrentIndex : 2, logCommitIndex : 1},"Error in TestLeaderorCandidateAppendEntriesRequest")
+	expectAction(t, action,[]interface{}{Alarm{200},StateStore{"FOLLOWER",4,0},LogStore{2,LogEntry{4,[]byte("write")}},Send{2,AppendEntriesResponseEvent{1,4,true}}},"Error in FollowerAppendEntriesRequest-case4")
 }
 
+func TestLeaderAppendEntriesResponse(t *testing.T){
+	config := Config{1, []int{2,3,4,5}}
+	sm := StateMachine{myconfig : config, state : "LEADER",currentTerm : 3, votedFor : 1, log : []LogEntry{{1,[]byte("read")},{2,[]byte("cas")},{3,[]byte("write")},{3,[]byte("delete")}}, nextIndex : []int{0,2,2,1}, logCurrentIndex : 3, logCommitIndex : 1 }
+
+	// unsuccessful response from some other valid leader
+	action := sm.ProcessEvent(AppendEntriesResponseEvent{2, 4, false})
+	expectStateMachine(t,sm,StateMachine{myconfig : config, state : "FOLLOWER",currentTerm : 4, votedFor : 0, log : []LogEntry{{1,[]byte("read")},{2,[]byte("cas")},{3,[]byte("write")},{3,[]byte("delete")}}, nextIndex : []int{0,2,2,1}, logCurrentIndex : 3, logCommitIndex : 1 },"Error in TestLeaderAppendEntriesResponse - case 1")
+	expectAction(t,action,[]interface{}{Alarm{200}, StateStore{"FOLLOWER", 4, 0}},"error in TestLeaderAppendEntriesResponse - case 1")
+
+	// follower rejected because previous entries didn't match
+	sm = StateMachine{myconfig : config, state : "LEADER",currentTerm : 3, votedFor : 1, log : []LogEntry{{1,[]byte("read")},{2,[]byte("cas")},{3,[]byte("write")},{3,[]byte("delete")}}, nextIndex : []int{0,2,2,1}, logCurrentIndex : 3, logCommitIndex : 1 }
+	action = sm.ProcessEvent(AppendEntriesResponseEvent{3, 3, false})
+	expectStateMachine(t,sm,StateMachine{myconfig : config, state : "LEADER",currentTerm : 3, votedFor : 1, log : []LogEntry{{1,[]byte("read")},{2,[]byte("cas")},{3,[]byte("write")},{3,[]byte("delete")}}, nextIndex : []int{0,1,2,1}, logCurrentIndex : 3, logCommitIndex : 1 },"Error in TestLeaderAppendEntriesResponse - case 2")
+	expectAction(t,action,[]interface{}{Send{3,AppendEntriesRequestEvent{3,1,0,1,[]LogEntry{{2,[]byte("cas")},{3,[]byte("write")},{3,[]byte("delete")}},1 }}},"Error in TestLeaderAppendEntriesResponse - case2")
+
+	// successfully updated at the follower
+	sm = StateMachine{myconfig : config, state : "LEADER",currentTerm : 3, votedFor:1, log : []LogEntry{{1,[]byte("read")},{2,[]byte("cas")},{3,[]byte("write")},{3,[]byte("delete")}}, nextIndex : []int{0,2,2,1}, matchIndex : []int{0,0,2,1}, logCurrentIndex : 3, logCommitIndex : 1 }
+	action = sm.ProcessEvent(AppendEntriesResponseEvent{3, 3, true})
+	expectStateMachine(t,sm,StateMachine{myconfig : config, state : "LEADER",currentTerm : 3, votedFor : 1, log : []LogEntry{{1,[]byte("read")},{2,[]byte("cas")},{3,[]byte("write")},{3,[]byte("delete")}}, nextIndex : []int{0,4,2,1}, matchIndex : []int{0,3,2,1}, logCurrentIndex : 3, logCommitIndex : 2 },"Error in TestLeaderAppendEntriesResponse - case 3")
+	expectAction(t,action,[]interface{}{Commit{index : 2 , data : []byte("write"), err : nil}},"Error in TestLeaderAppendEntriesResponse - case3")
+
+}
+func TestCandidateorFollowerAppendEntriesResponse(t *testing.T){
+	config := Config{1, []int{2,3,4,5}}
+	sm := StateMachine{myconfig : config, state : "CANDIDATE",currentTerm : 3, votedFor : 1}
+	_= sm.ProcessEvent(AppendEntriesResponseEvent{3, 4, false})
+	expectStateMachine(t,sm,StateMachine{myconfig : config, state : "FOLLOWER", currentTerm : 4, votedFor :0 },"Error in TestCandidateorFollowerAppendEntriesResponse")
+	//expectAction(t,action,[]interface{}{StateStore{"FOLLOWER", 4, 0}},"Error in TestCandidateorFollowerAppendEntriesResponse")
+
+}
 func TestFollowerTimeout (t *testing.T){
 	config := Config{1, []int{2,3,4,5}}
 	mylog := []LogEntry{{1,[]byte("read")},{2,[]byte("cas")}}
@@ -163,3 +204,6 @@ func TestFollowerTimeout (t *testing.T){
 	expectAction(t,action,[]interface{}{Alarm{100},Send{peerId : 2, event : VoteRequestEvent{term : 4, candidateId : 1, lastLogIndex : 1, lastLogTerm : 2 }},Send{peerId : 3, event : VoteRequestEvent{term : 4, candidateId : 1, lastLogIndex : 1, lastLogTerm : 2 }},Send{peerId : 4, event : VoteRequestEvent{term : 4, candidateId : 1, lastLogIndex : 1, lastLogTerm : 2 }},Send{peerId : 5, event : VoteRequestEvent{term : 4, candidateId : 1, lastLogIndex : 1, lastLogTerm : 2 }},StateStore{state : "CANDIDATE", term : 4, votedFor : 1}},"Error in follower Timeout\n ")
 }
 
+func TestLeaderTimeout (t *testing.T){
+
+}
