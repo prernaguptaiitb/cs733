@@ -57,7 +57,7 @@ func (sm *StateMachine) AppendEntriesRequestFollower (msg AppendEntriesRequestEv
 		action = append(action, StateStore{sm.state, sm.currentTerm, sm.votedFor})
 		//Reply false if log doesn’t contain an entry at prevLogIndex whose term matches prevLogTerm 	
 	
-		if( msg.prevLogIndex != -1 || len(sm.log) < msg.prevLogIndex || sm.log[msg.prevLogIndex].term != msg.prevLogTerm ){
+		if( (msg.prevLogIndex != -1) && (len(sm.log) < msg.prevLogIndex || sm.log[msg.prevLogIndex].term != msg.prevLogTerm )){
 			action = append(action,Send{peerId : msg.leaderId, event : AppendEntriesResponseEvent{ fromId : sm.myconfig.myId,term : sm.currentTerm,isSuccessful : false}})
 		}else{
 			//Delete all entries starting from prevLogIndex+1 to logCurrentIndex and insert data from prevLogIndex+1
@@ -65,10 +65,10 @@ func (sm *StateMachine) AppendEntriesRequestFollower (msg AppendEntriesRequestEv
 			sm.log = append(sm.log,msg.data...)
 			//generate logstore action
 			for i := msg.prevLogIndex+1 ; i < msg.prevLogIndex+1+len(msg.data) ;i++{
-				action = append(action, LogStore{index : i , term:msg.data[i-msg.prevLogIndex-1].term, logData : msg.data[i-msg.prevLogIndex-1] })
+				action = append(action, LogStore{index : i , logData : msg.data[i-msg.prevLogIndex-1] })
 			}
 			//Update logCurrentIndex
-			sm.logCurrentIndex= len(sm.log)
+			sm.logCurrentIndex= len(sm.log)-1
 			action = append(action,Send{peerId : msg.leaderId, event : AppendEntriesResponseEvent{ fromId : sm.myconfig.myId,term : sm.currentTerm,isSuccessful : true}})
 			if msg.leaderCommitIndex > sm.logCommitIndex{ 
 				sm.logCommitIndex = Min(msg.leaderCommitIndex, sm.logCurrentIndex)

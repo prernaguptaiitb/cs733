@@ -109,7 +109,7 @@ func TestLeaderAppend(t *testing.T){
 	action:=sm.ProcessEvent(AppendEvent{[]byte("write")})
 	newlog := []LogEntry{{1,[]byte("read")},{2,[]byte("cas")},{3,[]byte("write")}}
 	expectStateMachine(t,sm,StateMachine{myconfig : config, state : "LEADER",currentTerm : 3, votedFor : 1, log : newlog ,logCurrentIndex : 2,logCommitIndex : 0, nextIndex : []int{0,2,2,1}},"Error in leader append\n")
-	expectAction(t,action,[]interface{}{LogStore{index : 2 ,term:3,logData : LogEntry{3,[]byte("write")}}, Send{peerId : 2, event : AppendEntriesRequestEvent{ term : 3, leaderId : 1 , prevLogIndex : -1 , prevLogTerm : 0 , data :newlog, leaderCommitIndex : 0}},Send{peerId : 3, event : AppendEntriesRequestEvent{ term : 3, leaderId : 1 , prevLogIndex : 1 , prevLogTerm : 2 , data :[]LogEntry{{3,[]byte("write")}}, leaderCommitIndex : 0}},Send{peerId : 4, event : AppendEntriesRequestEvent{ term : 3, leaderId : 1 , prevLogIndex : 1 , prevLogTerm : 2 , data : []LogEntry{{3,[]byte("write")}}, leaderCommitIndex : 0}},Send{peerId : 5, event : AppendEntriesRequestEvent{ term : 3, leaderId : 1 , prevLogIndex : 0 , prevLogTerm : 1 , data : []LogEntry{{2,[]byte("cas")},{3,[]byte("write")}}, leaderCommitIndex : 0}}},"Error in leader append Actions")
+	expectAction(t,action,[]interface{}{LogStore{index : 2 ,logData : LogEntry{3,[]byte("write")}}, Send{peerId : 2, event : AppendEntriesRequestEvent{ term : 3, leaderId : 1 , prevLogIndex : -1 , prevLogTerm : 0 , data :newlog, leaderCommitIndex : 0}},Send{peerId : 3, event : AppendEntriesRequestEvent{ term : 3, leaderId : 1 , prevLogIndex : 1 , prevLogTerm : 2 , data :[]LogEntry{{3,[]byte("write")}}, leaderCommitIndex : 0}},Send{peerId : 4, event : AppendEntriesRequestEvent{ term : 3, leaderId : 1 , prevLogIndex : 1 , prevLogTerm : 2 , data : []LogEntry{{3,[]byte("write")}}, leaderCommitIndex : 0}},Send{peerId : 5, event : AppendEntriesRequestEvent{ term : 3, leaderId : 1 , prevLogIndex : 0 , prevLogTerm : 1 , data : []LogEntry{{2,[]byte("cas")},{3,[]byte("write")}}, leaderCommitIndex : 0}}},"Error in leader append Actions")
 }
 
 func TestAppendFollowerorCandidate(t *testing.T){
@@ -120,11 +120,37 @@ func TestAppendFollowerorCandidate(t *testing.T){
 }
 
 func TestFollowerAppendEntriesRequest(t *testing.T){
-//	config := Config{2, []int{1,3,4,5}}
-//	mylog := []LogEntry{}
-//	sm := StateMachine{myconfig : config, state : "FOLLOWER",currentTerm : 2, votedFor : 1, log : []LogEntry{}, logCurrentIndex :0 }
-//	action:=sm.ProcessEvent(AppendEvent{[]byte("write")})
+
+	//peer 2 with next index = 0 . Leader sends 3 entries. term of peer 2 less than leader
+	config := Config{2, []int{1,3,4,5}}
+	sm := StateMachine{myconfig : config, state : "FOLLOWER",currentTerm : 2, votedFor : 1, log : []LogEntry{}, logCurrentIndex :-1, logCommitIndex:-1 }
+	newlog := []LogEntry{{1,[]byte("read")},{2,[]byte("cas")},{3,[]byte("write")}}
+	action:=sm.ProcessEvent(AppendEntriesRequestEvent{ term : 3, leaderId : 1 , prevLogIndex : -1 , prevLogTerm : 0 , data :newlog, leaderCommitIndex : 0})
+	expectStateMachine(t,sm,StateMachine{myconfig : config, state : "FOLLOWER",currentTerm : 3, votedFor : 0, log: newlog, logCurrentIndex:2 , logCommitIndex : 0},"Error in FollowerAppendEntriesRequest-case1")
+	expectAction(t, action,[]interface{}{Alarm{200},StateStore{"FOLLOWER",3,0},LogStore{0,LogEntry{1,[]byte("read")}},LogStore{1,LogEntry{2,[]byte("cas")}},LogStore{2,LogEntry{3,[]byte("write")}},Send{1,AppendEntriesResponseEvent{2,3,true}}},"Error in append entries request follower")
+
+	// peer 3 with next index =2 . Leader send only 1 entry . Term of peer 3 greater than leader
+	config = Config{3, []int{1,2,4,5}}
+	sm = StateMachine{myconfig : config, state : "FOLLOWER",currentTerm : 4, log : []LogEntry{{1,[]byte("read")},{2,[]byte("cas")},{4,[]byte("delete")}}, logCurrentIndex :2, logCommitIndex:1 }
+	action=sm.ProcessEvent(AppendEntriesRequestEvent{ term : 3, leaderId : 1 , prevLogIndex : 1 , prevLogTerm : 2 , data : []LogEntry{{3,[]byte("write")}}, leaderCommitIndex : 0})
+	expectStateMachine(t,sm,StateMachine{myconfig : config, state : "FOLLOWER",currentTerm : 4, log : []LogEntry{{1,[]byte("read")},{2,[]byte("cas")},{4,[]byte("delete")}}, logCurrentIndex :2, logCommitIndex:1 }, "Error in FollowerAppendEntriesRequest-case2")
+	expectAction(t, action,[]interface{}{Send{1,AppendEntriesResponseEvent{3,4,false}}},"Error in FollowerAppendEntriesRequest-case2")
 	
+	// peer 4 with next index =2 . Leader send only 1 entry and previous log index and previous  log term did not match
+	config = Config{4, []int{1,2,4,5}}
+	sm = StateMachine{myconfig : config, state : "FOLLOWER",currentTerm : 2, votedFor : 1, log : []LogEntry{{1,[]byte("read")},{2,[]byte("cas")},{3,[]byte("delete")}}, logCurrentIndex :2, logCommitIndex:1 }
+	newlog = []LogEntry{{1,[]byte("read")},{2,[]byte("cas")},{4,[]byte("write")},{4,[]byte("delete")}}
+	action=sm.ProcessEvent(AppendEntriesRequestEvent{ term : 4, leaderId : 1 , prevLogIndex : 2 , prevLogTerm : 4 , data : []LogEntry{{4,[]byte("delete")}}, leaderCommitIndex : 1})
+	expectStateMachine(t,sm,StateMachine{myconfig : config, state : "FOLLOWER",currentTerm : 4, votedFor : 0, log : []LogEntry{{1,[]byte("read")},{2,[]byte("cas")},{3,[]byte("delete")}}, logCurrentIndex :2, logCommitIndex:1 }, "Error in FollowerAppendEntriesRequest-case2")
+	expectAction(t, action,[]interface{}{Alarm{200},StateStore{"FOLLOWER",4,0},Send{1,AppendEntriesResponseEvent{4,4,false}}},"Error in FollowerAppendEntriesRequest-case2")
+	
+	// Now suppose previous log term match, then log should be overwritten
+	action=sm.ProcessEvent(AppendEntriesRequestEvent{ term : 4, leaderId : 1 , prevLogIndex : 1 , prevLogTerm : 2 , data : []LogEntry{{4,[]byte("write")},{4,[]byte("delete")}}, leaderCommitIndex : 1})
+	expectStateMachine(t,sm,StateMachine{myconfig : config, state : "FOLLOWER",currentTerm : 4, votedFor : 0, log : newlog, logCurrentIndex :3, logCommitIndex:1 }, "Error in FollowerAppendEntriesRequest-case2")
+	expectAction(t, action,[]interface{}{Alarm{200},StateStore{"FOLLOWER",4,0},LogStore{2,LogEntry{4,[]byte("write")}},LogStore{3,LogEntry{4,[]byte("delete")}}, Send{1,AppendEntriesResponseEvent{4,4,true}}},"Error in append entries request follower")
+
+}
+func TestFollowerAppendEntriesRequest(t *testing.T){
 
 }
 
