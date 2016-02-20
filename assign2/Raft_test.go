@@ -258,6 +258,14 @@ func TestCandidateVoteResponse (t *testing.T){
 	expectStateMachine(t,sm,StateMachine{myconfig : config, state : "FOLLOWER",currentTerm : 4, votedFor:0, log : mylog, nextIndex : []int{0,2,2,1}, matchIndex : []int{0,0,2,1}, logCurrentIndex : 3, logCommitIndex : 1, yesVotesNum : 1,noVotesNum : 0},"Error in TestCandidateVoteResponse-case3")
 	expectAction(t,action,[]interface{}{Alarm{200}, StateStore{"FOLLOWER",4,0}},"Error in TestCandidateVoteResponse- case 3")
 }
+func TestVoteResponseFollower(t *testing.T){
+	config := Config{2, []int{1,3,4,5}}
+	mylog := []LogEntry{{1,[]byte("read")},{2,[]byte("cas")},{3,[]byte("write")},{3,[]byte("delete")}}
+	sm := StateMachine{myconfig : config, state : "FOLLOWER",currentTerm : 3, votedFor:1, log : mylog,  logCurrentIndex : 3, logCommitIndex : 1}
+	action:=sm.ProcessEvent(VoteResponseEvent{4,true})
+	expectStateMachine(t,sm,StateMachine{myconfig : config, state : "FOLLOWER",currentTerm : 4, votedFor:0, log : mylog,  logCurrentIndex : 3, logCommitIndex : 1},"Error in TestVoteResponseFollower")
+	expectAction(t,action,[]interface{}{StateStore{"FOLLOWER",4,0}},"Error in TestVoteResponseFollower")
+}
 
 func TestVoteRequestFollower (t *testing.T){
 	config := Config{2, []int{1,3,4,5}}

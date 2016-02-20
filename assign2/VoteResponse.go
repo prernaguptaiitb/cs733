@@ -25,9 +25,10 @@ func (sm *StateMachine) VoteResponseFollower (msg VoteResponseEvent) ([] interfa
 	var action []interface{}
 	if msg.term > sm.currentTerm {
 		sm.currentTerm = msg.term
+		sm.votedFor=0
+		action = append(action, StateStore{sm.state, sm.currentTerm, sm.votedFor})
+	
 	}
-	sm.votedFor=0
-	action = append(action, StateStore{sm.state, sm.currentTerm, sm.votedFor})
 	return action
 }
 func (sm *StateMachine) VoteResponseCandidate (msg VoteResponseEvent) ([] interface{}){
