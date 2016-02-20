@@ -59,7 +59,9 @@ func (sm *StateMachine) VoteRequestFollower (msg VoteRequestEvent) ([] interface
 		if (sm.log[sm.logCurrentIndex].term < msg.lastLogTerm) || ((sm.log[sm.logCurrentIndex].term == msg.lastLogTerm) && (sm.logCurrentIndex <= msg.lastLogIndex)){
 			// grant vote
 			sm.votedFor = msg.candidateId
-			flag = true
+			if sm.currentTerm < msg.term{
+				flag = true
+			}
 			action = append(action, Alarm{t : 200})	
 			action = append(action, Send{peerId : msg.candidateId, event : VoteResponseEvent{term : sm.currentTerm, isVoteGranted : true}})		
 		}else{

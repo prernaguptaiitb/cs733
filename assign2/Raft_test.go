@@ -259,3 +259,33 @@ func TestCandidateVoteResponse (t *testing.T){
 	expectStateMachine(t,sm,StateMachine{myconfig : config, state : "FOLLOWER",currentTerm : 4, votedFor:0, log : mylog, nextIndex : []int{0,2,2,1}, matchIndex : []int{0,0,2,1}, logCurrentIndex : 3, logCommitIndex : 1, yesVotesNum : 1,noVotesNum : 0},"Error in TestCandidateVoteResponse-case3")
 	expectAction(t,action,[]interface{}{Alarm{200}, StateStore{"FOLLOWER",4,0}},"Error in TestCandidateVoteResponse- case 3")
 }
+
+func TestVoteRequestFollower (t *testing.T){
+	config := Config{2, []int{1,3,4,5}}
+	mylog := []LogEntry{{1,[]byte("read")},{2,[]byte("cas")}}
+	sm := StateMachine{myconfig : config, state : "FOLLOWER",currentTerm : 2, votedFor:1, log : mylog, logCurrentIndex : 1, logCommitIndex : 1}
+
+	// vote request from same term leader again with updated log. Should be granted
+	action:=sm.ProcessEvent(VoteRequestEvent{2,1,3,2})
+	expectStateMachine(t,sm,StateMachine{myconfig : config, state : "FOLLOWER",currentTerm : 2, votedFor:1, log : mylog, logCurrentIndex : 1, logCommitIndex : 1},"Error in TestVoteRequestFollower")
+	expectAction(t,action,[]interface{}{Alarm{200},Send{1,VoteResponseEvent{2,true}}},"Error in TestVoteRequestFollower")
+
+	// vote request from higher term leader with less updated log . should not be granted
+	sm = StateMachine{myconfig : config, state : "FOLLOWER",currentTerm : 2, votedFor:1, log : mylog, logCurrentIndex : 1, logCommitIndex : 1}
+	action=sm.ProcessEvent(VoteRequestEvent{3,1,2,1})
+	expectStateMachine(t,sm,StateMachine{myconfig : config, state : "FOLLOWER",currentTerm : 3, votedFor:0, log : mylog, logCurrentIndex : 1, logCommitIndex : 1},"Error in TestVoteRequestFollower")
+	expectAction(t,action,[]interface{}{Send{1,VoteResponseEvent{3,false}}, StateStore{"FOLLOWER",3,0}},"Error in TestVoteRequestFollower")
+
+	//vote  request from higher term leader with more updated log . should be granted
+	sm = StateMachine{myconfig : config, state : "FOLLOWER",currentTerm : 2, votedFor:1, log : mylog, logCurrentIndex : 1, logCommitIndex : 1}
+	action=sm.ProcessEvent(VoteRequestEvent{3,1,2,3})
+	expectStateMachine(t,sm,StateMachine{myconfig : config, state : "FOLLOWER",currentTerm : 3, votedFor:1, log : mylog, logCurrentIndex : 1, logCommitIndex : 1},"Error in TestVoteRequestFollower")
+	expectAction(t,action,[]interface{}{Alarm{200},Send{1,VoteResponseEvent{3,true}}, StateStore{"FOLLOWER",3,1}},"Error in TestVoteRequestFollower")
+
+	//vote request from lower term leader, Should be rejected
+	sm = StateMachine{myconfig : config, state : "FOLLOWER",currentTerm : 2, votedFor:1, log : mylog, logCurrentIndex : 1, logCommitIndex : 1}
+	action=sm.ProcessEvent(VoteRequestEvent{1,1,2,3})
+	expectStateMachine(t,sm,StateMachine{myconfig : config, state : "FOLLOWER",currentTerm : 2, votedFor:1, log : mylog, logCurrentIndex : 1, logCommitIndex : 1},"Error in TestVoteRequestFollower")
+	expectAction(t,action,[]interface{}{Send{1,VoteResponseEvent{2,false}}},"Error in TestVoteRequestFollower")
+
+}
