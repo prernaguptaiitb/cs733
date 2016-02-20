@@ -54,15 +54,18 @@ func (sm *StateMachine) VoteResponseCandidate (msg VoteResponseEvent) ([] interf
 			sm.state="FOLLOWER"
 			sm.votedFor = 0
 			action = append(action, Alarm{t:200})
+			//store the state
+			action = append(action, StateStore{sm.state, sm.currentTerm, sm.votedFor})
 		}else{
 			sm.noVotesNum+=1
 			if sm.noVotesNum >= (len(sm.myconfig.peer)/2) + 1 {
 				sm.state="FOLLOWER"
 				action = append(action, Alarm{t:200})
+				//store the state
+				action = append(action, StateStore{sm.state, sm.currentTerm, sm.votedFor})
 			}
 		}
-		//store the state
-		action = append(action, StateStore{sm.state, sm.currentTerm, sm.votedFor})
+		
 	}
 	return action
 }

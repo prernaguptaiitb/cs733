@@ -53,7 +53,7 @@ func (sm *StateMachine) TimeoutCandidate (msg TimeoutEvent) ([] interface{}){
 	sm.yesVotesNum=1
 	sm.noVotesNum=0
 	//Reset election timer
-	action = append(action, Alarm{0})
+	action = append(action, Alarm{100})
 	for i :=0; i<len(sm.myconfig.peer); i++ { 
 			action = append(action,Send{peerId : sm.myconfig.peer[i], event : VoteRequestEvent{term : sm.currentTerm, candidateId : sm.myconfig.myId, lastLogIndex : sm.logCurrentIndex, lastLogTerm : sm.log[sm.logCurrentIndex].term }} )
 		}

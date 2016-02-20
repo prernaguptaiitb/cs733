@@ -195,6 +195,16 @@ func TestCandidateorFollowerAppendEntriesResponse(t *testing.T){
 	//expectAction(t,action,[]interface{}{StateStore{"FOLLOWER", 4, 0}},"Error in TestCandidateorFollowerAppendEntriesResponse")
 
 }
+
+func TestCandidateTimeout (t *testing.T){
+	config := Config{1, []int{2,3,4,5}}
+	mylog := []LogEntry{{1,[]byte("read")},{2,[]byte("cas")}}
+	sm := StateMachine{myconfig : config, state : "CANDIDATE",currentTerm : 3, votedFor : 2,log : mylog,logCurrentIndex : 1,yesVotesNum:0}
+	action:=sm.ProcessEvent(TimeoutEvent{})
+	expectStateMachine(t,sm,StateMachine{state : "CANDIDATE", currentTerm : 4, votedFor :1, log : mylog ,logCurrentIndex : 1,yesVotesNum:1 },"Error in candidate timeout\n")
+	expectAction(t,action,[]interface{}{Alarm{100},Send{peerId : 2, event : VoteRequestEvent{term : 4, candidateId : 1, lastLogIndex : 1, lastLogTerm : 2 }},Send{peerId : 3, event : VoteRequestEvent{term : 4, candidateId : 1, lastLogIndex : 1, lastLogTerm : 2 }},Send{peerId : 4, event : VoteRequestEvent{term : 4, candidateId : 1, lastLogIndex : 1, lastLogTerm : 2 }},Send{peerId : 5, event : VoteRequestEvent{term : 4, candidateId : 1, lastLogIndex : 1, lastLogTerm : 2 }},StateStore{state : "CANDIDATE", term : 4, votedFor : 1}},"Error in candidate Timeout\n ")
+}
+
 func TestFollowerTimeout (t *testing.T){
 	config := Config{1, []int{2,3,4,5}}
 	mylog := []LogEntry{{1,[]byte("read")},{2,[]byte("cas")}}
@@ -204,6 +214,8 @@ func TestFollowerTimeout (t *testing.T){
 	expectAction(t,action,[]interface{}{Alarm{100},Send{peerId : 2, event : VoteRequestEvent{term : 4, candidateId : 1, lastLogIndex : 1, lastLogTerm : 2 }},Send{peerId : 3, event : VoteRequestEvent{term : 4, candidateId : 1, lastLogIndex : 1, lastLogTerm : 2 }},Send{peerId : 4, event : VoteRequestEvent{term : 4, candidateId : 1, lastLogIndex : 1, lastLogTerm : 2 }},Send{peerId : 5, event : VoteRequestEvent{term : 4, candidateId : 1, lastLogIndex : 1, lastLogTerm : 2 }},StateStore{state : "CANDIDATE", term : 4, votedFor : 1}},"Error in follower Timeout\n ")
 }
 
+
+
 func TestLeaderTimeout (t *testing.T){
 	config := Config{1, []int{2,3,4,5}}
 	mylog := []LogEntry{{1,[]byte("read")},{2,[]byte("cas")},{3,[]byte("write")}}
@@ -212,4 +224,38 @@ func TestLeaderTimeout (t *testing.T){
 	expectStateMachine(t,sm,StateMachine{myconfig:config,state:"LEADER", currentTerm:3, log: mylog, nextIndex :[]int{1,1,2,1},logCurrentIndex:1, logCommitIndex:0},"Error in leader timeout")
 	expectAction(t,action,[]interface{}{Send{2,AppendEntriesRequestEvent{3,1,0,1,[]LogEntry{{2,[]byte("cas")},{3,[]byte("write")}},0}},Send{3,AppendEntriesRequestEvent{3,1,0,1,[]LogEntry{{2,[]byte("cas")},{3,[]byte("write")}},0}},Send{4,AppendEntriesRequestEvent{3,1,1,2,[]LogEntry{{3,[]byte("write")}},0}},Send{5,AppendEntriesRequestEvent{3,1,0,1,[]LogEntry{{2,[]byte("cas")},{3,[]byte("write")}},0}}},"Error in leader timeout")
 	
+}
+
+func TestCandidateVoteResponse (t *testing.T){
+	config := Config{1, []int{2,3,4,5}}
+	mylog := []LogEntry{{1,[]byte("read")},{2,[]byte("cas")},{3,[]byte("write")},{3,[]byte("delete")}}
+	sm := StateMachine{myconfig : config, state : "CANDIDATE",currentTerm : 3, votedFor:1, log : mylog, nextIndex : []int{0,2,2,1}, matchIndex : []int{0,0,2,1}, logCurrentIndex : 3, logCommitIndex : 1, yesVotesNum :1,noVotesNum : 0 }
+	
+	//yes votes in majority
+	_=sm.ProcessEvent(VoteResponseEvent{3,true})
+	expectStateMachine(t,sm,StateMachine{myconfig : config, state : "CANDIDATE",currentTerm : 3, votedFor:1, log : mylog, nextIndex : []int{0,2,2,1}, matchIndex : []int{0,0,2,1}, logCurrentIndex : 3, logCommitIndex : 1, yesVotesNum : 2,noVotesNum : 0},"Error in TestCandidateVoteResponse-case1")
+	//expectAction(t,action,[]interface{}{Alarm{200}},"Error in TestCandidateVoteResponse- case 1")
+	_=sm.ProcessEvent(VoteResponseEvent{3,false})
+	expectStateMachine(t,sm,StateMachine{myconfig : config, state : "CANDIDATE",currentTerm : 3, votedFor:1, log : mylog, nextIndex : []int{0,2,2,1}, matchIndex : []int{0,0,2,1}, logCurrentIndex : 3, logCommitIndex : 1, yesVotesNum : 2,noVotesNum : 1},"Error in TestCandidateVoteResponse-case1")
+	action:=sm.ProcessEvent(VoteResponseEvent{3,true})
+	expectStateMachine(t,sm,StateMachine{myconfig : config, state : "LEADER",currentTerm : 3, votedFor:1, log : mylog, nextIndex : []int{4,4,4,4}, matchIndex : []int{0,0,0,0}, logCurrentIndex : 3, logCommitIndex : 1, yesVotesNum : 3,noVotesNum : 1},"Error in TestCandidateVoteResponse-case1")
+	expectAction(t,action,[]interface{}{Alarm{200}, StateStore{"LEADER",3,1}, Send{2,AppendEntriesRequestEvent{3,1,3,3,nil,1}}, Send{3,AppendEntriesRequestEvent{3,1,3,3,nil,1}}, Send{4,AppendEntriesRequestEvent{3,1,3,3,nil,1}}, Send{5,AppendEntriesRequestEvent{3,1,3,3,nil,1}}},"Error in TestCandidateVoteResponse- case 1")
+
+	// no votes in majority
+	sm = StateMachine{myconfig : config, state : "CANDIDATE",currentTerm : 3, votedFor:1, log : mylog, nextIndex : []int{0,2,2,1}, matchIndex : []int{0,0,2,1}, logCurrentIndex : 3, logCommitIndex : 1, yesVotesNum :1,noVotesNum : 0 }
+	_=sm.ProcessEvent(VoteResponseEvent{3,false})
+	expectStateMachine(t,sm,StateMachine{myconfig : config, state : "CANDIDATE",currentTerm : 3, votedFor:1, log : mylog, nextIndex : []int{0,2,2,1}, matchIndex : []int{0,0,2,1}, logCurrentIndex : 3, logCommitIndex : 1, yesVotesNum : 1,noVotesNum : 1},"Error in TestCandidateVoteResponse-case2")
+	//expectAction(t,action,[]interface{}{Alarm{200}},"Error in TestCandidateVoteResponse- case 1")
+	_=sm.ProcessEvent(VoteResponseEvent{3,false})
+	expectStateMachine(t,sm,StateMachine{myconfig : config, state : "CANDIDATE",currentTerm : 3, votedFor:1, log : mylog, nextIndex : []int{0,2,2,1}, matchIndex : []int{0,0,2,1}, logCurrentIndex : 3, logCommitIndex : 1, yesVotesNum : 1, noVotesNum : 2},"Error in TestCandidateVoteResponse-case2")
+	action=sm.ProcessEvent(VoteResponseEvent{3,false})
+	expectStateMachine(t,sm,StateMachine{myconfig : config, state : "FOLLOWER",currentTerm : 3, votedFor:1, log : mylog, nextIndex : []int{0,2,2,1}, matchIndex : []int{0,0,2,1}, logCurrentIndex : 3, logCommitIndex : 1, yesVotesNum : 1,noVotesNum : 3},"Error in TestCandidateVoteResponse-case2")
+	expectAction(t,action,[]interface{}{Alarm{200}, StateStore{"FOLLOWER",3,1}},"Error in TestCandidateVoteResponse- case 2")
+
+	
+	// false response from higher term 
+	sm = StateMachine{myconfig : config, state : "CANDIDATE",currentTerm : 3, votedFor:1, log : mylog, nextIndex : []int{0,2,2,1}, matchIndex : []int{0,0,2,1}, logCurrentIndex : 3, logCommitIndex : 1, yesVotesNum :1,noVotesNum : 0 }
+	action=sm.ProcessEvent(VoteResponseEvent{4,false})
+	expectStateMachine(t,sm,StateMachine{myconfig : config, state : "FOLLOWER",currentTerm : 4, votedFor:0, log : mylog, nextIndex : []int{0,2,2,1}, matchIndex : []int{0,0,2,1}, logCurrentIndex : 3, logCommitIndex : 1, yesVotesNum : 1,noVotesNum : 0},"Error in TestCandidateVoteResponse-case3")
+	expectAction(t,action,[]interface{}{Alarm{200}, StateStore{"FOLLOWER",4,0}},"Error in TestCandidateVoteResponse- case 3")
 }
