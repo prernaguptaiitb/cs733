@@ -25,6 +25,7 @@ func (sm *StateMachine) VoteRequestLeaderorCandidate (msg VoteRequestEvent) ([] 
 		// Update the term and change to follower state
 		sm.currentTerm=msg.term;
 		sm.state="FOLLOWER"
+		sm.votedFor=0
 		//if candidate log is at least as up-to-date as this leaders log, then grant vote otherwise not
 		if (sm.log[sm.logCurrentIndex].term < msg.lastLogTerm) || ((sm.log[sm.logCurrentIndex].term == msg.lastLogTerm) && (sm.logCurrentIndex <= msg.lastLogIndex)){
 			//grant vote
@@ -34,7 +35,6 @@ func (sm *StateMachine) VoteRequestLeaderorCandidate (msg VoteRequestEvent) ([] 
 			
 		}else{
 			// do not grant vote
-			action = append(action, StateStore{sm.state, sm.currentTerm, sm.votedFor})
 			action = append(action, Send{peerId : msg.candidateId, event : VoteResponseEvent{term : sm.currentTerm, isVoteGranted : false}})
 		}
 		action = append(action, StateStore{sm.state, sm.currentTerm, sm.votedFor})
