@@ -20,7 +20,11 @@ func (sm *StateMachine) TimeoutLeader (msg TimeoutEvent) ([] interface{}){
 	var action []interface{}
 	//heartbeat timeout
 	for i :=0; i<len(sm.myconfig.peer); i++ { 
-		action = append(action,Send{peerId : sm.myconfig.peer[i], event : AppendEntriesRequestEvent{ term : sm.currentTerm, leaderId : sm.myconfig.myId, prevLogIndex : sm.logCurrentIndex-1, prevLogTerm : sm.log[sm.logCurrentIndex-1].term, data : nil , leaderCommitIndex : sm.logCommitIndex}})
+		if sm.nextIndex[i] == 0{
+			action = append(action,Send{peerId : sm.myconfig.peer[i], event : AppendEntriesRequestEvent{ term : sm.currentTerm, leaderId : sm.myconfig.myId, prevLogIndex : sm.nextIndex[i]-1, prevLogTerm : 0, data : sm.log[sm.nextIndex[i]:] , leaderCommitIndex : sm.logCommitIndex}})
+		}else{
+			action = append(action,Send{peerId : sm.myconfig.peer[i], event : AppendEntriesRequestEvent{ term : sm.currentTerm, leaderId : sm.myconfig.myId, prevLogIndex : sm.nextIndex[i]-1, prevLogTerm : sm.log[sm.nextIndex[i]-1].term, data : sm.log[sm.nextIndex[i]:] , leaderCommitIndex : sm.logCommitIndex}})
+		}			
 	}
 	return action
 }

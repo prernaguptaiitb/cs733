@@ -65,7 +65,7 @@ func checkEqual(actionArr1 []interface{}, actionArr2 []interface{})(bool){
 			}
 		}
 		if !flag {
-			fmt.Printf("%v %v", expval)
+			fmt.Printf("%v", expval)
 			return flag
 		}
 		flag = false
@@ -205,5 +205,11 @@ func TestFollowerTimeout (t *testing.T){
 }
 
 func TestLeaderTimeout (t *testing.T){
-
+	config := Config{1, []int{2,3,4,5}}
+	mylog := []LogEntry{{1,[]byte("read")},{2,[]byte("cas")},{3,[]byte("write")}}
+	sm := StateMachine{myconfig : config, state : "LEADER", currentTerm :3 ,log: mylog, nextIndex :[]int{1,1,2,1},logCurrentIndex:1, logCommitIndex:0 }
+	action:=sm.ProcessEvent(TimeoutEvent{})
+	expectStateMachine(t,sm,StateMachine{myconfig:config,state:"LEADER", currentTerm:3, log: mylog, nextIndex :[]int{1,1,2,1},logCurrentIndex:1, logCommitIndex:0},"Error in leader timeout")
+	expectAction(t,action,[]interface{}{Send{2,AppendEntriesRequestEvent{3,1,0,1,[]LogEntry{{2,[]byte("cas")},{3,[]byte("write")}},0}},Send{3,AppendEntriesRequestEvent{3,1,0,1,[]LogEntry{{2,[]byte("cas")},{3,[]byte("write")}},0}},Send{4,AppendEntriesRequestEvent{3,1,1,2,[]LogEntry{{3,[]byte("write")}},0}},Send{5,AppendEntriesRequestEvent{3,1,0,1,[]LogEntry{{2,[]byte("cas")},{3,[]byte("write")}},0}}},"Error in leader timeout")
+	
 }

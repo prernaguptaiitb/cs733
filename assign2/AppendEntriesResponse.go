@@ -37,7 +37,7 @@ func (sm *StateMachine) AppendEntriesResponseLeader (msg AppendEntriesResponseEv
 				// follower rejected because previous entries didn't match
 				
 				sm.nextIndex[i]-=1
-				action = append(action,Send{peerId : msg.fromId ,event : AppendEntriesRequestEvent{term : sm.currentTerm, leaderId : sm.myconfig.myId ,prevLogIndex : sm.nextIndex[i]-1, prevLogTerm : sm.log[sm.nextIndex[i]-1].term, data : sm.log[sm.nextIndex[msg.fromId]:], leaderCommitIndex : sm.logCommitIndex}})
+				action = append(action,Send{peerId : msg.fromId ,event : AppendEntriesRequestEvent{term : sm.currentTerm, leaderId : sm.myconfig.myId ,prevLogIndex : sm.nextIndex[i]-1, prevLogTerm : sm.log[sm.nextIndex[i]-1].term, data : sm.log[sm.nextIndex[i]:], leaderCommitIndex : sm.logCommitIndex}})
 			}
 	}else {
 		//successfully appended at the follower.Update matchIndex and nextIndex
