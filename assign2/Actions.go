@@ -17,6 +17,7 @@ type Alarm struct{
 
 type LogStore struct{
 	index int
+	term int
 	logData LogEntry
 }
 

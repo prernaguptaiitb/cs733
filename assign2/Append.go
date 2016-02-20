@@ -26,12 +26,16 @@ func (sm *StateMachine) AppendLeader (msg AppendEvent) ([] interface{}){
 	sm.logCurrentIndex++
 	temp := LogEntry{sm.currentTerm, msg.data }
 	sm.log = append(sm.log, temp)
-	action = append(action,LogStore { sm.logCurrentIndex , temp})
+	action = append(action,LogStore { sm.logCurrentIndex , sm.currentTerm, temp})
 	//send AppendEntriesRequest to all peers
 	for i:=0; i<len(sm.myconfig.peer); i++ { 
-		action = append(action, Send{sm.myconfig.peer[i], AppendEntriesRequestEvent{ sm.currentTerm, sm.myconfig.myId, sm.nextIndex[sm.myconfig.peer[i]]-1, sm.log[sm.nextIndex[sm.myconfig.peer[i]]-1].term, sm.log[sm.nextIndex[sm.myconfig.peer[i]]:], sm.logCommitIndex}})
+		if sm.nextIndex[i]==0{
+			//set previous log index and term to be -1 and 0 . We assume 
+			action = append(action, Send{sm.myconfig.peer[i], AppendEntriesRequestEvent{ sm.currentTerm, sm.myconfig.myId, sm.nextIndex[i]-1, 0, sm.log[sm.nextIndex[i]:], sm.logCommitIndex}})
+		}else{
+			action = append(action, Send{sm.myconfig.peer[i], AppendEntriesRequestEvent{ sm.currentTerm, sm.myconfig.myId, sm.nextIndex[i]-1, sm.log[sm.nextIndex[i]-1].term, sm.log[sm.nextIndex[i]:], sm.logCommitIndex}})
+		}
 	}
-
 	return action
 }
 

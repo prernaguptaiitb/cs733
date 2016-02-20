@@ -4,6 +4,7 @@ import(
 	"fmt"
 	"testing"
 	"reflect"
+	"errors"
 )
 
 // check if state machine in expected state
@@ -11,55 +12,73 @@ func expectStateMachine(t *testing.T, responsesm StateMachine , expectedsm State
 	ok := true
 	if responsesm.state != expectedsm.state {
 			ok = false
-			errstr += fmt.Sprintf("State mismatch")
+			errstr += fmt.Sprintf("State mismatch\n")
 	}
 	if responsesm.currentTerm != expectedsm.currentTerm {
 			ok = false
-			errstr += fmt.Sprintf("Term mismatch")
+			errstr += fmt.Sprintf("Term mismatch\n")
 	}
 	if responsesm.votedFor != expectedsm.votedFor {
 			ok = false
-			errstr += fmt.Sprintf("VotedFor mismatch")
+			errstr += fmt.Sprintf("VotedFor mismatch\n")
 	}
 	if !reflect.DeepEqual(responsesm.log, expectedsm.log) {
 			ok = false
-			errstr += fmt.Sprintf("Log mismatch")
+			errstr += fmt.Sprintf("Log mismatch\n")
 	}
 	if responsesm.logCurrentIndex != expectedsm.logCurrentIndex {
 			ok = false
-			errstr += fmt.Sprintf("logCurrentIndex mismatch")
+			errstr += fmt.Sprintf("logCurrentIndex mismatch\n")
 	}
 	if responsesm.logCommitIndex != expectedsm.logCommitIndex {
 			ok = false
-			errstr += fmt.Sprintf("logCommitIndex mismatch")
+			errstr += fmt.Sprintf("logCommitIndex mismatch\n")
 	}
 	if !reflect.DeepEqual(responsesm.nextIndex, expectedsm.nextIndex) {
 			ok = false
-			errstr += fmt.Sprintf("NextIndex mismatch")
+			errstr += fmt.Sprintf("NextIndex mismatch\n")
 	}
 	if !reflect.DeepEqual(responsesm.matchIndex, expectedsm.matchIndex) {
 			ok = false
-			errstr += fmt.Sprintf("MatchIndex mismatch")
+			errstr += fmt.Sprintf("MatchIndex mismatch\n")
 	}
 	if responsesm.yesVotesNum != expectedsm.yesVotesNum {
 			ok = false
-			errstr += fmt.Sprintf("yesVotesNum mismatch")
+			errstr += fmt.Sprintf("yesVotesNum mismatch\n")
 	}
 	if responsesm.noVotesNum != expectedsm.noVotesNum {
 			ok = false
-			errstr += fmt.Sprintf("noVotesNum mismatch")
+			errstr += fmt.Sprintf("noVotesNum mismatch\n")
 	}
 	if !ok {
 		t.Fatal(errstr)
 	}
 }
+//check if actions are equal
+func checkEqual(actionArr1 []interface{}, actionArr2 []interface{})(bool){
+	flag := false
+	for _, expval := range actionArr1{
+		for _,resval := range actionArr2{
+			if reflect.DeepEqual(expval, resval){
+				flag = true
+				break
+			}
+		}
+		if !flag {
+			fmt.Printf("%v %v", expval)
+			return flag
+		}
+		flag = false
+	}
+	return true
+}
 
-// check if actions are returned if expected
+// check if actions are returned as expected
 func expectAction(t *testing.T, response []interface{} , expected []interface{}, errstr string) {
 	ok := true
 	if len(response) != len(expected){
 		ok = false
-		errstr += fmt.Sprintf("No of response actions not equal to expected")
+		errstr += fmt.Sprintf("No of response actions not equal to expected\n")
 	}
 	resMap := make(map[reflect.Type]int)
 	expMap := make(map[reflect.Type]int)   
@@ -72,35 +91,49 @@ func expectAction(t *testing.T, response []interface{} , expected []interface{},
    	if !reflect.DeepEqual(resMap, expMap){
    		//check if action are generated as expected
    		ok = false
-   		errstr += fmt.Sprintf("Response action not as expected")
+   		errstr += fmt.Sprintf("Response action not as expected\n")
    	}
-	flag := false
-	for _, expval := range expected{
-		for _,resval := range response{
-			if reflect.DeepEqual(expval, resval){
-				flag=true
-				break
-			}
-		}
-		if !flag {
+   	if !(checkEqual(expected,response) && checkEqual(response,expected)){
 			ok = false
-			errstr += fmt.Sprintf("Expected %v action not generated", expval)
-		}
+			errstr += fmt.Sprintf("Expected action not generated\n")
 	}
-
 	if !ok {
 		t.Fatal(fmt.Sprintf(errstr))
 	}
 }
 
+func TestLeaderAppend(t *testing.T){
+	config := Config{1, []int{2,3,4,5}}
+	mylog := []LogEntry{{1,[]byte("read")},{2,[]byte("cas")}}
+	sm := StateMachine{myconfig : config, state : "LEADER",currentTerm : 3, votedFor : 1, log : mylog, logCurrentIndex : 1 ,logCommitIndex : 0, nextIndex : []int{0,2,2,1}}
+	action:=sm.ProcessEvent(AppendEvent{[]byte("write")})
+	newlog := []LogEntry{{1,[]byte("read")},{2,[]byte("cas")},{3,[]byte("write")}}
+	expectStateMachine(t,sm,StateMachine{myconfig : config, state : "LEADER",currentTerm : 3, votedFor : 1, log : newlog ,logCurrentIndex : 2,logCommitIndex : 0, nextIndex : []int{0,2,2,1}},"Error in leader append\n")
+	expectAction(t,action,[]interface{}{LogStore{index : 2 ,term:3,logData : LogEntry{3,[]byte("write")}}, Send{peerId : 2, event : AppendEntriesRequestEvent{ term : 3, leaderId : 1 , prevLogIndex : -1 , prevLogTerm : 0 , data :newlog, leaderCommitIndex : 0}},Send{peerId : 3, event : AppendEntriesRequestEvent{ term : 3, leaderId : 1 , prevLogIndex : 1 , prevLogTerm : 2 , data :[]LogEntry{{3,[]byte("write")}}, leaderCommitIndex : 0}},Send{peerId : 4, event : AppendEntriesRequestEvent{ term : 3, leaderId : 1 , prevLogIndex : 1 , prevLogTerm : 2 , data : []LogEntry{{3,[]byte("write")}}, leaderCommitIndex : 0}},Send{peerId : 5, event : AppendEntriesRequestEvent{ term : 3, leaderId : 1 , prevLogIndex : 0 , prevLogTerm : 1 , data : []LogEntry{{2,[]byte("cas")},{3,[]byte("write")}}, leaderCommitIndex : 0}}},"Error in leader append Actions")
+}
+
+func TestAppendFollowerorCandidate(t *testing.T){
+	config := Config{1, []int{2,3,4,5}}
+	sm := StateMachine{myconfig : config, state : "FOLLOWER",currentTerm : 3}
+	action:=sm.ProcessEvent(AppendEvent{[]byte("write")})
+	expectAction(t,action,[]interface{}{Commit{ -1, []byte("write") , errors.New("Error in committing. Not a leader")}},"Error in append of follower or candidate")
+}
+
+func TestFollowerAppendEntriesRequest(t *testing.T){
+//	config := Config{2, []int{1,3,4,5}}
+//	mylog := []LogEntry{}
+//	sm := StateMachine{myconfig : config, state : "FOLLOWER",currentTerm : 2, votedFor : 1, log : []LogEntry{}, logCurrentIndex :0 }
+//	action:=sm.ProcessEvent(AppendEvent{[]byte("write")})
+	
+
+}
+
 func TestFollowerTimeout (t *testing.T){
 	config := Config{1, []int{2,3,4,5}}
 	mylog := []LogEntry{{1,[]byte("read")},{2,[]byte("cas")}}
-	//nextIn := []int{2,2,2,2}
-	//matchIn := []int{0,0,0,0}
-	//sm := StateMachine{config,"FOLLOWER",3, 0,log,1,0,nextIn,matchIn,0,0}
-	sm := StateMachine{myconfig : config, state : "FOLLOWER",currentTerm : 3, votedFor : 2,log : mylog,yesVotesNum:0}
-	_=sm.ProcessEvent(TimeoutEvent{})
-	expectStateMachine(t,sm,StateMachine{state : "CANDIDATE", currentTerm : 4, votedFor :1, log : mylog ,yesVotesNum:1 },"Error in follower timeout")
+	sm := StateMachine{myconfig : config, state : "FOLLOWER",currentTerm : 3, votedFor : 2,log : mylog,logCurrentIndex : 1,yesVotesNum:0}
+	action:=sm.ProcessEvent(TimeoutEvent{})
+	expectStateMachine(t,sm,StateMachine{state : "CANDIDATE", currentTerm : 4, votedFor :1, log : mylog ,logCurrentIndex : 1,yesVotesNum:1 },"Error in follower timeout\n")
+	expectAction(t,action,[]interface{}{Alarm{100},Send{peerId : 2, event : VoteRequestEvent{term : 4, candidateId : 1, lastLogIndex : 1, lastLogTerm : 2 }},Send{peerId : 3, event : VoteRequestEvent{term : 4, candidateId : 1, lastLogIndex : 1, lastLogTerm : 2 }},Send{peerId : 4, event : VoteRequestEvent{term : 4, candidateId : 1, lastLogIndex : 1, lastLogTerm : 2 }},Send{peerId : 5, event : VoteRequestEvent{term : 4, candidateId : 1, lastLogIndex : 1, lastLogTerm : 2 }},StateStore{state : "CANDIDATE", term : 4, votedFor : 1}},"Error in follower Timeout\n ")
 }
 
