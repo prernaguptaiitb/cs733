@@ -32,7 +32,7 @@ func (sm *StateMachine) AppendEntriesResponseLeader(msg AppendEntriesResponseEve
 			sm.state = "FOLLOWER"
 			sm.currentTerm = msg.term
 			sm.votedFor = 0
-			action = append(action, Alarm{200})
+			action = append(action, Alarm{t: Random(sm.electionTO)})
 			action = append(action, StateStore{sm.state, sm.currentTerm, sm.votedFor})
 		} else {
 			// follower rejected because previous entries didn't match

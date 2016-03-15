@@ -17,6 +17,7 @@ func (sm *StateMachine) Timeout(msg TimeoutEvent) []interface{} {
 }
 func (sm *StateMachine) TimeoutLeader(msg TimeoutEvent) []interface{} {
 	var action []interface{}
+	action = append(action, Alarm{t: Random(sm.heartbeatTO)})
 	//heartbeat timeout
 	for i := 0; i < len(sm.myconfig.peer); i++ {
 		if sm.nextIndex[i] == 0 {
@@ -37,7 +38,7 @@ func (sm *StateMachine) TimeoutFollower(msg TimeoutEvent) []interface{} {
 	sm.yesVotesNum = 1
 	sm.noVotesNum = 0
 	//Reset election timer
-	action = append(action, Alarm{t: 100})
+	action = append(action, Alarm{t: Random(sm.electionTO)})
 	for i := 0; i < len(sm.myconfig.peer); i++ {
 		action = append(action, Send{peerId: sm.myconfig.peer[i], event: VoteRequestEvent{term: sm.currentTerm, candidateId: sm.myconfig.myId, lastLogIndex: sm.logCurrentIndex, lastLogTerm: sm.log[sm.logCurrentIndex].term}})
 	}
@@ -52,7 +53,7 @@ func (sm *StateMachine) TimeoutCandidate(msg TimeoutEvent) []interface{} {
 	sm.yesVotesNum = 1
 	sm.noVotesNum = 0
 	//Reset election timer
-	action = append(action, Alarm{100})
+	action = append(action, Alarm{t: Random(sm.electionTO)})
 	for i := 0; i < len(sm.myconfig.peer); i++ {
 		action = append(action, Send{peerId: sm.myconfig.peer[i], event: VoteRequestEvent{term: sm.currentTerm, candidateId: sm.myconfig.myId, lastLogIndex: sm.logCurrentIndex, lastLogTerm: sm.log[sm.logCurrentIndex].term}})
 	}

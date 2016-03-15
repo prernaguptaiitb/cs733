@@ -48,21 +48,21 @@ func (sm *StateMachine) VoteResponseCandidate(msg VoteResponseEvent) []interface
 				action = append(action, Send{peerId: sm.myconfig.peer[i], event: AppendEntriesRequestEvent{term: sm.currentTerm, leaderId: sm.myconfig.myId, prevLogIndex: sm.logCurrentIndex, prevLogTerm: sm.log[sm.logCurrentIndex].term, data: nil, leaderCommitIndex: sm.logCommitIndex}})
 			}
 			//reset heartbeat timer
-			action = append(action, Alarm{t: 200})
+			action = append(action, Alarm{t: Random(sm.heartbeatTO)})
 		}
 	} else {
 		if msg.term > sm.currentTerm {
 			sm.currentTerm = msg.term
 			sm.state = "FOLLOWER"
 			sm.votedFor = 0
-			action = append(action, Alarm{t: 200})
+			action = append(action, Alarm{t: Random(sm.electionTO)})
 			//store the state
 			action = append(action, StateStore{sm.state, sm.currentTerm, sm.votedFor})
 		} else {
 			sm.noVotesNum += 1
 			if sm.noVotesNum >= (len(sm.myconfig.peer)/2)+1 {
 				sm.state = "FOLLOWER"
-				action = append(action, Alarm{t: 200})
+				action = append(action, Alarm{t: Random(sm.electionTO)})
 				//store the state
 				action = append(action, StateStore{sm.state, sm.currentTerm, sm.votedFor})
 			}

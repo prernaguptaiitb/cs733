@@ -53,7 +53,7 @@ func (sm *StateMachine) AppendEntriesRequestFollower(msg AppendEntriesRequestEve
 		}
 		sm.currentTerm = msg.term
 		//Reset Election Timer
-		action = append(action, Alarm{t: 200})
+		action = append(action, Alarm{t: Random(sm.electionTO)})
 		action = append(action, StateStore{sm.state, sm.currentTerm, sm.votedFor})
 		//Reply false if log doesn’t contain an entry at prevLogIndex whose term matches prevLogTerm
 
@@ -71,6 +71,9 @@ func (sm *StateMachine) AppendEntriesRequestFollower(msg AppendEntriesRequestEve
 			sm.logCurrentIndex = len(sm.log) - 1
 			action = append(action, Send{peerId: msg.leaderId, event: AppendEntriesResponseEvent{fromId: sm.myconfig.myId, term: sm.currentTerm, isSuccessful: true}})
 			if msg.leaderCommitIndex > sm.logCommitIndex {
+				for j := sm.logCommitIndex + 1; j <= Min(msg.leaderCommitIndex, sm.logCurrentIndex); j++ {
+					action = append(action, Commit{index: j, data: sm.log[j].cmd, err: nil})
+				}
 				sm.logCommitIndex = Min(msg.leaderCommitIndex, sm.logCurrentIndex)
 			}
 		}

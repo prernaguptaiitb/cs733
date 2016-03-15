@@ -38,7 +38,7 @@ func (sm *StateMachine) VoteRequestLeaderorCandidate(msg VoteRequestEvent) []int
 			action = append(action, Send{peerId: msg.candidateId, event: VoteResponseEvent{term: sm.currentTerm, isVoteGranted: false}})
 		}
 		action = append(action, StateStore{sm.state, sm.currentTerm, sm.votedFor})
-		action = append(action, Alarm{t: 200})
+		action = append(action, Alarm{t: Random(sm.electionTO)})
 	} else {
 		// reject vote
 		action = append(action, Send{peerId: msg.candidateId, event: VoteResponseEvent{term: sm.currentTerm, isVoteGranted: false}})
@@ -62,7 +62,7 @@ func (sm *StateMachine) VoteRequestFollower(msg VoteRequestEvent) []interface{} 
 			if sm.currentTerm < msg.term {
 				flag = true
 			}
-			action = append(action, Alarm{t: 200})
+			action = append(action, Alarm{t: Random(sm.electionTO)})
 			action = append(action, Send{peerId: msg.candidateId, event: VoteResponseEvent{term: sm.currentTerm, isVoteGranted: true}})
 		} else {
 			// do not grant vote

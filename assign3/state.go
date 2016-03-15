@@ -1,5 +1,10 @@
 package main
 
+import (
+	"math/rand"
+	"time"
+)
+
 type Config struct {
 	myId int   //persistent
 	peer []int //persistent
@@ -17,6 +22,8 @@ type StateMachine struct {
 	matchIndex      []int
 	yesVotesNum     int
 	noVotesNum      int
+	electionTO int
+	heartbeatTO int 
 }
 
 type LogEntry struct {
@@ -57,4 +64,10 @@ func (sm *StateMachine) ProcessEvent(ev interface{}) []interface{} {
 		println("Unrecognized")
 	}
 	return action
+}
+
+func Random(min int) int {
+	max := 2*min
+    rand.Seed(time.Now().Unix())
+    return rand.Intn(max - min) + min
 }
