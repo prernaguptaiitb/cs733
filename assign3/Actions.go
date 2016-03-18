@@ -1,14 +1,14 @@
 package main
 
 type Send struct {
-	peerId int
-	event  interface{}
+	PeerId int
+	Event  interface{}
 }
 
 type Commit struct {
-	index int
-	data  []byte
-	err   error
+	Index int
+	Data  []byte
+	Err   error
 }
 
 type Alarm struct {
@@ -16,12 +16,12 @@ type Alarm struct {
 }
 
 type LogStore struct {
-	index   int
-	logData LogEntry
+	Index   int
+	LogData LogEntry
 }
 
 type StateStore struct {
-	state    string
-	term     int
-	votedFor int
+	State    string
+	Term     int
+	VotedFor int
 }

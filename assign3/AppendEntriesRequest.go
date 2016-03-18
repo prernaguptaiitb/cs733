@@ -1,12 +1,12 @@
 package main
 
 type AppendEntriesRequestEvent struct {
-	term              int
-	leaderId          int
-	prevLogIndex      int
-	prevLogTerm       int
-	data              []LogEntry
-	leaderCommitIndex int
+	Term              int
+	LeaderId          int
+	PrevLogIndex      int
+	PrevLogTerm       int
+	Data              []LogEntry
+	LeaderCommitIndex int
 }
 
 func (sm *StateMachine) AppendEntriesRequest(msg AppendEntriesRequestEvent) []interface{} {
@@ -24,15 +24,15 @@ func (sm *StateMachine) AppendEntriesRequest(msg AppendEntriesRequestEvent) []in
 
 func (sm *StateMachine) AppendEntriesRequestLeaderorCandidate(msg AppendEntriesRequestEvent) []interface{} {
 	var action []interface{}
-	if sm.currentTerm > msg.term {
-		//request from invalid leader . Send leaders current term and failure
-		action = append(action, Send{peerId: msg.leaderId, event: AppendEntriesResponseEvent{fromId: sm.myconfig.myId, term: sm.currentTerm, isSuccessful: false}})
+	if sm.currentTerm > msg.Term {
+		//request from invalid leader . Send leaders current Term and failure
+		action = append(action, Send{msg.LeaderId, AppendEntriesResponseEvent{FromId: sm.myconfig.myId, Term: sm.currentTerm, IsSuccessful: false}})
 	} else {
-		//request from valid leader. Update the term, change to follower state and then process RPC
-		if sm.currentTerm < msg.term {
+		//request from valid leader. Update the Term, change to follower state and then process RPC
+		if sm.currentTerm < msg.Term {
 			sm.votedFor = 0
 		}
-		sm.currentTerm = msg.term
+		sm.currentTerm = msg.Term
 		sm.state = "FOLLOWER"
 		// call follower function
 		action = sm.AppendEntriesRequestFollower(msg)
@@ -42,39 +42,45 @@ func (sm *StateMachine) AppendEntriesRequestLeaderorCandidate(msg AppendEntriesR
 
 func (sm *StateMachine) AppendEntriesRequestFollower(msg AppendEntriesRequestEvent) []interface{} {
 	var action []interface{}
-	if sm.currentTerm > msg.term {
-		//request from invalid leader - send leader’s current term and failure
-		action = append(action, Send{peerId: msg.leaderId, event: AppendEntriesResponseEvent{fromId: sm.myconfig.myId, term: sm.currentTerm, isSuccessful: false}})
+	if sm.currentTerm > msg.Term {
+		//request from invalid leader - send leader’s current Term and failure
+		action = append(action, Send{PeerId: msg.LeaderId, Event: AppendEntriesResponseEvent{FromId: sm.myconfig.myId, Term: sm.currentTerm, IsSuccessful: false}})
 
 	} else {
 
-		if sm.currentTerm < msg.term {
+		if sm.currentTerm < msg.Term {
 			sm.votedFor = 0
 		}
-		sm.currentTerm = msg.term
+		sm.currentTerm = msg.Term
 		//Reset Election Timer
-		action = append(action, Alarm{t: Random(sm.electionTO)})
+	
+		action = append(action, Alarm{t:Random(sm.electionTO) })
 		action = append(action, StateStore{sm.state, sm.currentTerm, sm.votedFor})
-		//Reply false if log doesn’t contain an entry at prevLogIndex whose term matches prevLogTerm
-
-		if (msg.prevLogIndex != -1) && (len(sm.log) < msg.prevLogIndex || sm.log[msg.prevLogIndex].term != msg.prevLogTerm) {
-			action = append(action, Send{peerId: msg.leaderId, event: AppendEntriesResponseEvent{fromId: sm.myconfig.myId, term: sm.currentTerm, isSuccessful: false}})
+		//Reply false if log doesn’t contain an entry at PrevLogIndex whose Term matches PrevLogTerm		
+		
+		l:=len(sm.log)
+		if(l==0){ // no entry in state machine log
+			l=-1
+		}
+		if (msg.PrevLogIndex != -1) && (l < msg.PrevLogIndex || sm.log[msg.PrevLogIndex].Term != msg.PrevLogTerm) {
+			action = append(action, Send{PeerId: msg.LeaderId, Event: AppendEntriesResponseEvent{FromId: sm.myconfig.myId, Term: sm.currentTerm, IsSuccessful: false}})
 		} else {
-			//Delete all entries starting from prevLogIndex+1 to logCurrentIndex and insert data from prevLogIndex+1
-			sm.log = sm.log[:msg.prevLogIndex+1]
-			sm.log = append(sm.log, msg.data...)
+		
+			//Delete all entries starting from PrevLogIndex+1 to logCurrentIndex and insert Data from PrevLogIndex+1
+			sm.log = sm.log[:msg.PrevLogIndex+1]
+			sm.log = append(sm.log, msg.Data...)
 			//generate logstore action
-			for i := msg.prevLogIndex + 1; i < msg.prevLogIndex+1+len(msg.data); i++ {
-				action = append(action, LogStore{index: i, logData: msg.data[i-msg.prevLogIndex-1]})
+			for i := msg.PrevLogIndex + 1; i < msg.PrevLogIndex+1+len(msg.Data); i++ {
+				action = append(action, LogStore{Index: i, LogData: msg.Data[i-msg.PrevLogIndex-1]})
 			}
 			//Update logCurrentIndex
 			sm.logCurrentIndex = len(sm.log) - 1
-			action = append(action, Send{peerId: msg.leaderId, event: AppendEntriesResponseEvent{fromId: sm.myconfig.myId, term: sm.currentTerm, isSuccessful: true}})
-			if msg.leaderCommitIndex > sm.logCommitIndex {
-				for j := sm.logCommitIndex + 1; j <= Min(msg.leaderCommitIndex, sm.logCurrentIndex); j++ {
-					action = append(action, Commit{index: j, data: sm.log[j].cmd, err: nil})
+			action = append(action, Send{PeerId: msg.LeaderId, Event: AppendEntriesResponseEvent{FromId: sm.myconfig.myId, Term: sm.currentTerm, IsSuccessful: true}})
+			if msg.LeaderCommitIndex > sm.logCommitIndex {
+				for j := sm.logCommitIndex + 1; j <= Min(msg.LeaderCommitIndex, sm.logCurrentIndex); j++ {
+					action = append(action, Commit{Index: j, Data: sm.log[j].Cmd, Err: nil})
 				}
-				sm.logCommitIndex = Min(msg.leaderCommitIndex, sm.logCurrentIndex)
+				sm.logCommitIndex = Min(msg.LeaderCommitIndex, sm.logCurrentIndex)
 			}
 		}
 

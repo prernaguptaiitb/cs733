@@ -4,64 +4,89 @@ import (
 	"github.com/cs733-iitb/cluster"
 	"github.com/cs733-iitb/log"
 	"time"
+	"fmt"
 )
 
 func (rn *RaftNode) AlarmHandler(ac Alarm) {
-	val := rn.timeoutVal
-	time.Sleep(time.Duration(ac.t) * time.Millisecond)
-	if val == rn.timeoutVal {
-		(rn.TimeoutCh) <- TimeoutEvent{}
+	rn.timer.Reset(time.Duration(ac.t) * time.Millisecond)
+//	fmt.Printf("Id : %v Alarm Generated\n", rn.rc.Id)
+//	val := rn.timeoutVal
+	//rn.TimeoutVal=1
+/*	go func(){rn.AlarmSetCh <- true}()
+
+	select{
+		case <-rn.AlarmResetCh:
+  //      	fmt.Printf("Id : %v Alarm Reset\n", rn.rc.Id)
+    	case <-time.After(time.Duration(ac.t) * time.Millisecond):
+  //  		fmt.Printf("Id : %v Time out called\n", rn.rc.Id)
+        	(rn.TimeoutCh) <- TimeoutEvent{}
 	}
+
+	<-rn.AlarmSetCh
+//	rn.TimeoutVal=0
+	
+//	time.Sleep(time.Duration(ac.t) * time.Millisecond)
+//	if val == rn.timeoutVal {
+//		(rn.TimeoutCh) <- TimeoutEvent{}
+//	}*/
 }
 
 func (rn *RaftNode) SendHandler(ac Send) {
 	var ev interface{}
-	switch ac.event.(type) {
+	switch ac.Event.(type) {
 	case VoteRequestEvent:
-		ev = ac.event.(VoteRequestEvent)
+//		fmt.Printf("%v Id VoteRequestEvent Send \n", rn.rc.Id)
+		ev = ac.Event.(VoteRequestEvent)
+//		PrintVoteReqEvent(ev.(VoteRequestEvent))
 	case VoteResponseEvent:
-		ev = ac.event.(VoteResponseEvent)
+		ev = ac.Event.(VoteResponseEvent)
+//		fmt.Printf("%v Id VoteResponseEvent Send\n", rn.rc.Id)
+//		PrintVoteResEvent(ev.(VoteResponseEvent))
 	case AppendEntriesRequestEvent:
-		ev = ac.event.(AppendEntriesRequestEvent)
+//		fmt.Printf("%v Id AppendEntriesRequestEvent  send\n", rn.rc.Id)
+		ev = ac.Event.(AppendEntriesRequestEvent)
+//		PrintAppendEntriesReqEvent(ev.(AppendEntriesRequestEvent))
 	case AppendEntriesResponseEvent:
-		ev = ac.event.(AppendEntriesResponseEvent)
+//		fmt.Printf("%v Id AppendEntriesResponseEvent Send\n", rn.rc.Id)
+		ev = ac.Event.(AppendEntriesResponseEvent)
+//		PrintAppendEntriesResEvent(ev.(AppendEntriesResponseEvent))
 	}
-	rn.srvr.Outbox() <- &cluster.Envelope{Pid: ac.peerId, Msg: ev}
+	rn.srvr.Outbox() <- &cluster.Envelope{Pid: ac.PeerId, Msg: ev}
 }
 
 func (rn *RaftNode) CommitHandler(ac Commit) {
+	fmt.Printf("%v Commit generated\n", rn.rc.Id)
 	var ci CommitInfo
-	ci.Data = ac.data
-	ci.Index = ac.index
-	ci.Err = ac.err
+	ci.Data = ac.Data
+	ci.Index = ac.Index
+	ci.Err = ac.Err
 	rn.CommitCh <- ci
 }
 
 func (rn *RaftNode) LogStoreHandler(ac LogStore) {
+	fmt.Printf("%v LogStore generated\n", rn.rc.Id)
 	lgFile := rn.rc.LogDir + "/" + "logfile"
 	lg, err := log.Open(lgFile)
+	lg.RegisterSampleEntry(LogEntry{})
 	defer lg.Close()
 	lgLastIndex := lg.GetLastIndex()
-	if int(lgLastIndex) >= ac.index {
-		lg.TruncateToEnd(int64(ac.index))
+	if int(lgLastIndex) >= ac.Index {
+		lg.TruncateToEnd(int64(ac.Index))
 	} else {
-		err = lg.Append(ac.logData)
+		err = lg.Append(ac.LogData)
 		assert(err == nil)
 	}
 
 }
 
 func (rn *RaftNode) StateStoreHandler(ac StateStore) {
+//	fmt.Printf("%v StateStore generated\n", rn.rc.Id)
 	stateFile := rn.rc.StateDir + "/" + "mystate"
 	state, err := log.Open(stateFile)
 	defer state.Close()
 	assert(err == nil)
 	state.TruncateToEnd(0)
-	err = state.Append(ac.state)
-	assert(err == nil)
-	err = state.Append(ac.term)
-	assert(err == nil)
-	err = state.Append(ac.votedFor)
+	ss := SMState{State: ac.State, CurrentTerm: ac.Term, VotedFor: ac.VotedFor}
+	err = state.Append(ss)
 	assert(err == nil)
 }
-

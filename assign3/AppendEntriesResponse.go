@@ -1,9 +1,9 @@
 package main
 
 type AppendEntriesResponseEvent struct {
-	fromId       int
-	term         int
-	isSuccessful bool
+	FromId       int
+	Term         int
+	IsSuccessful bool
 }
 
 func (sm *StateMachine) AppendEntriesResponse(msg AppendEntriesResponseEvent) []interface{} {
@@ -22,34 +22,39 @@ func (sm *StateMachine) AppendEntriesResponseLeader(msg AppendEntriesResponseEve
 	var action []interface{}
 	i := 0
 	for i = 0; i < len(sm.myconfig.peer); i++ {
-		if msg.fromId == sm.myconfig.peer[i] {
+		if msg.FromId == sm.myconfig.peer[i] {
 			break
 		}
 	}
-	if msg.isSuccessful == false {
-		//receiver rejected because it is more updated(has higher term)
-		if sm.currentTerm < msg.term {
+	if msg.IsSuccessful == false {
+		//receiver rejected because it is more updated(has higher Term)
+		if sm.currentTerm < msg.Term {
 			sm.state = "FOLLOWER"
-			sm.currentTerm = msg.term
+			sm.currentTerm = msg.Term
 			sm.votedFor = 0
 			action = append(action, Alarm{t: Random(sm.electionTO)})
 			action = append(action, StateStore{sm.state, sm.currentTerm, sm.votedFor})
 		} else {
 			// follower rejected because previous entries didn't match
-
-			sm.nextIndex[i] -= 1
-			action = append(action, Send{peerId: msg.fromId, event: AppendEntriesRequestEvent{term: sm.currentTerm, leaderId: sm.myconfig.myId, prevLogIndex: sm.nextIndex[i] - 1, prevLogTerm: sm.log[sm.nextIndex[i]-1].term, data: sm.log[sm.nextIndex[i]:], leaderCommitIndex: sm.logCommitIndex}})
+			sm.nextIndex[i] = Max(0, sm.nextIndex[i]-1)
+			var prevlogterm int
+			if sm.nextIndex[i]==0{
+				prevlogterm = 0
+			}else{
+				prevlogterm = sm.log[sm.nextIndex[i]-1].Term
+			}
+			action = append(action, Send{PeerId: msg.FromId, Event: AppendEntriesRequestEvent{Term: sm.currentTerm, LeaderId: sm.myconfig.myId, PrevLogIndex: sm.nextIndex[i] - 1, PrevLogTerm: prevlogterm, Data: sm.log[sm.nextIndex[i]:], LeaderCommitIndex: sm.logCommitIndex}})
 		}
 	} else {
 		//successfully appended at the follower.Update matchIndex and nextIndex
 		sm.nextIndex[i] = sm.logCurrentIndex + 1
 		sm.matchIndex[i] = sm.logCurrentIndex
-		//	fromid := i
+		//	FromId := i
 		maxIndex := -1
 		//check if we can commit something
 		for i := 0; i < len(sm.myconfig.peer); i++ {
 			numYes := 1
-			if sm.matchIndex[i] > sm.logCommitIndex && sm.matchIndex[i] > maxIndex && sm.log[sm.matchIndex[i]].term == sm.currentTerm {
+			if sm.matchIndex[i] > sm.logCommitIndex && sm.matchIndex[i] > maxIndex && sm.log[sm.matchIndex[i]].Term == sm.currentTerm {
 				for j := 0; j < len(sm.myconfig.peer); j++ {
 					if sm.matchIndex[j] >= sm.matchIndex[i] {
 						numYes += 1
@@ -65,7 +70,7 @@ func (sm *StateMachine) AppendEntriesResponseLeader(msg AppendEntriesResponseEve
 		// If yes, commit and sent commit msg to layer above
 		if maxIndex != -1 {
 			for k := sm.logCommitIndex + 1; k <= maxIndex; k++ {
-				action = append(action, Commit{index: k, data: sm.log[k].cmd, err: nil})
+				action = append(action, Commit{Index: k, Data: sm.log[k].Cmd, Err: nil})
 			}
 			sm.logCommitIndex = maxIndex
 		}
@@ -75,12 +80,18 @@ func (sm *StateMachine) AppendEntriesResponseLeader(msg AppendEntriesResponseEve
 func (sm *StateMachine) AppendEntriesResponseFollowerorCandidate(msg AppendEntriesResponseEvent) []interface{} {
 	var action []interface{}
 	//reject the response
-	if msg.term > sm.currentTerm {
-		sm.currentTerm = msg.term
+	if msg.Term > sm.currentTerm {
+		sm.currentTerm = msg.Term
 		sm.state = "FOLLOWER"
 		sm.votedFor = 0
 		action = append(action, StateStore{sm.state, sm.currentTerm, sm.votedFor})
 	}
 	return action
 
+}
+func Max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }

@@ -1,8 +1,10 @@
 package main
 
+import "fmt"
+
 type VoteResponseEvent struct {
-	term          int
-	isVoteGranted bool
+	Term          int
+	IsVoteGranted bool
 }
 
 func (sm *StateMachine) VoteResponse(msg VoteResponseEvent) []interface{} {
@@ -24,8 +26,8 @@ func (sm *StateMachine) VoteResponseLeader(msg VoteResponseEvent) []interface{} 
 }
 func (sm *StateMachine) VoteResponseFollower(msg VoteResponseEvent) []interface{} {
 	var action []interface{}
-	if msg.term > sm.currentTerm {
-		sm.currentTerm = msg.term
+	if msg.Term > sm.currentTerm {
+		sm.currentTerm = msg.Term
 		sm.votedFor = 0
 		action = append(action, StateStore{sm.state, sm.currentTerm, sm.votedFor})
 
@@ -34,25 +36,32 @@ func (sm *StateMachine) VoteResponseFollower(msg VoteResponseEvent) []interface{
 }
 func (sm *StateMachine) VoteResponseCandidate(msg VoteResponseEvent) []interface{} {
 	var action []interface{}
-	if msg.isVoteGranted == true {
+	if msg.IsVoteGranted == true {
 		sm.yesVotesNum += 1
 		if sm.yesVotesNum >= (len(sm.myconfig.peer)/2)+1 {
 			// Elect it as leader
 			sm.state = "LEADER"
+			fmt.Printf("Leader Elected: %v, term=%v \n", sm.myconfig.myId, sm.currentTerm)
 			//store the state
 			action = append(action, StateStore{sm.state, sm.currentTerm, sm.votedFor})
+			var lastlogTerm int
 			for i := 0; i < len(sm.myconfig.peer); i++ {
 				// Initialize nextIndex and matchIndex and send heartbeat messages
-				sm.matchIndex[i] = 0
+				sm.matchIndex[i] = -1
 				sm.nextIndex[i] = sm.logCurrentIndex + 1
-				action = append(action, Send{peerId: sm.myconfig.peer[i], event: AppendEntriesRequestEvent{term: sm.currentTerm, leaderId: sm.myconfig.myId, prevLogIndex: sm.logCurrentIndex, prevLogTerm: sm.log[sm.logCurrentIndex].term, data: nil, leaderCommitIndex: sm.logCommitIndex}})
+				if sm.logCurrentIndex == -1 {
+					lastlogTerm = 0
+				} else {
+					lastlogTerm = sm.log[sm.logCurrentIndex].Term
+				}
+				action = append(action, Send{PeerId: sm.myconfig.peer[i], Event: AppendEntriesRequestEvent{Term: sm.currentTerm, LeaderId: sm.myconfig.myId, PrevLogIndex: sm.logCurrentIndex, PrevLogTerm: lastlogTerm, Data: nil, LeaderCommitIndex: sm.logCommitIndex}})
 			}
 			//reset heartbeat timer
 			action = append(action, Alarm{t: Random(sm.heartbeatTO)})
 		}
 	} else {
-		if msg.term > sm.currentTerm {
-			sm.currentTerm = msg.term
+		if msg.Term > sm.currentTerm {
+			sm.currentTerm = msg.Term
 			sm.state = "FOLLOWER"
 			sm.votedFor = 0
 			action = append(action, Alarm{t: Random(sm.electionTO)})

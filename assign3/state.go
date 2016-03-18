@@ -1,6 +1,7 @@
 package main
 
 import (
+	
 	"math/rand"
 	"time"
 )
@@ -22,13 +23,13 @@ type StateMachine struct {
 	matchIndex      []int
 	yesVotesNum     int
 	noVotesNum      int
-	electionTO int
-	heartbeatTO int 
+	electionTO      int
+	heartbeatTO     int
 }
 
 type LogEntry struct {
-	term int
-	cmd  []byte
+	Term int
+	Cmd  []byte
 }
 
 func (sm *StateMachine) ProcessEvent(ev interface{}) []interface{} {
@@ -67,7 +68,7 @@ func (sm *StateMachine) ProcessEvent(ev interface{}) []interface{} {
 }
 
 func Random(min int) int {
-	max := 2*min
-    rand.Seed(time.Now().Unix())
-    return rand.Intn(max - min) + min
+	//max := 2 * min
+	rand.Seed(time.Now().UnixNano())
+	return rand.Intn(min) + min
 }

@@ -2,9 +2,12 @@ package main
 
 import (
 	"encoding/gob"
+	"fmt"
 	"github.com/cs733-iitb/cluster"
 	"github.com/cs733-iitb/log"
 	"os"
+	"time"
+//	"reflect"
 )
 
 // data goes in via Append, comes out as CommitInfo from the node's CommitChannel
@@ -17,13 +20,17 @@ type CommitInfo struct {
 
 type RaftNode struct {
 	// implements Node interface
-	rc RaftConfig
+	rc         RaftConfig
 	sm         StateMachine
 	srvr       cluster.Server    // server object for communication
 	EventCh    chan interface{}  // for any event other than timeout
-	TimeoutCh  chan TimeoutEvent //for timeout events
+//	TimeoutCh  chan TimeoutEvent //for timeout events
 	CommitCh   chan CommitInfo   //for committed entries
-	timeoutVal int64
+	timer *time.Timer
+
+//	TimeoutVal int64
+//	AlarmResetCh chan bool
+//	AlarmSetCh chan bool
 }
 
 type NetConfig struct {
@@ -41,18 +48,25 @@ type RaftConfig struct {
 	HeartbeatTimeout int
 }
 
+type SMState struct {
+	State       string
+	CurrentTerm int
+	VotedFor    int
+}
+
 func New(RaftNode_config RaftConfig) RaftNode {
 
 	//make raftnode object and set it
 	var rn RaftNode
-	rn.rc=RaftNode_config
-	//rn.rc.LogDir = RaftNode_config.LogDir
-	//rn.rc.StateDir = RaftNode_config.StateDir
+	rn.rc = RaftNode_config
 	rn.sm = InitializeStateMachine(RaftNode_config)
 	rn.EventCh = make(chan interface{}, 1000)
-	rn.TimeoutCh = make(chan TimeoutEvent)
+//	rn.TimeoutCh = make(chan TimeoutEvent)
 	rn.CommitCh = make(chan CommitInfo, 1000)
-	rn.timeoutVal = 0
+	rn.timer = time.NewTimer(time.Duration(RaftNode_config.ElectionTimeout)*time.Millisecond)
+//	rn.AlarmResetCh = make(chan bool,1)
+//	rn.AlarmSetCh = make(chan bool,1)
+//	rn.TimeoutVal = 0
 
 	rn.srvr, _ = cluster.New(RaftNode_config.Id, "Config.json") //make server object for communication
 	// register events
@@ -61,6 +75,13 @@ func New(RaftNode_config RaftConfig) RaftNode {
 	gob.Register(AppendEntriesRequestEvent{})
 	gob.Register(AppendEntriesResponseEvent{})
 
+	// call election timeout
+	//go func() {
+	//	rn.AlarmHandler(Alarm{t: Random(RaftNode_config.ElectionTimeout)})
+
+	//	time.Sleep(time.Duration(Random(RaftNode_config.ElectionTimeout)) * time.Millisecond)
+	//	(rn.TimeoutCh) <- TimeoutEvent{}
+	//}()
 	return rn
 }
 
@@ -81,20 +102,15 @@ func InitializeStateMachine(RaftNode_config RaftConfig) StateMachine {
 	assert(err == nil)
 	res, err := state.Get(0)
 	assert(err == nil)
-	smobj.state, ok = res.(string)
+	data, ok := res.(SMState)
 	assert(ok)
-	res, err = state.Get(1)
-	assert(err == nil)
-	smobj.currentTerm, ok = res.(int)
-	assert(ok)
-	res, err = state.Get(2)
-	assert(err == nil)
-	smobj.votedFor, ok = res.(int)
-	assert(ok)
-
+	smobj.state = data.State
+	smobj.currentTerm = data.CurrentTerm
+	smobj.votedFor = data.VotedFor
 	// initialize statemachine log
 	lgFile := RaftNode_config.LogDir + "/" + "logfile"
 	lg, err := log.Open(lgFile)
+	lg.RegisterSampleEntry(LogEntry{})
 	defer lg.Close()
 	assert(err == nil)
 	i := int(lg.GetLastIndex())
@@ -125,7 +141,8 @@ func InitializeStateMachine(RaftNode_config RaftConfig) StateMachine {
 
 // Client's message to Raft node
 func (rn *RaftNode) Append(data []byte) {
-	rn.EventCh <- AppendEvent{data: data}
+	fmt.Printf("Id : %v Append event\n", rn.rc.Id)
+	rn.EventCh <- AppendEvent{Data: data}
 }
 
 // A channel for client to listen on. What goes into Append must come out of here at some point
@@ -133,35 +150,35 @@ func (rn *RaftNode) CommitChannel() <-chan CommitInfo {
 	return rn.CommitCh
 }
 
-
 // Last known committed index in the log. This could be -1 until the system stabilizes.
 func (rn *RaftNode) CommittedIndex() int {
 	return rn.sm.logCommitIndex
 }
 
 // Returns the data at a log index, or an error.
-func (rn *RaftNode) Get(index int) (error, []byte){
+func (rn *RaftNode) Get(index int) (error, []byte) {
 	lgFile := rn.rc.LogDir + "/" + "logfile"
 	lg, err := log.Open(lgFile)
 	defer lg.Close()
 	assert(err == nil)
-	lgentry, err := lg.Get(int64(index)) 
-    le,_ := lgentry.(LogEntry) 
-    data := le.cmd
-    return err, data
+	lgentry, err := lg.Get(int64(index))
+	le, _ := lgentry.(LogEntry)
+	data := le.Cmd
+	return err, data
 }
 
 // Node's id
-func (rn *RaftNode) Id() (int){
+func (rn *RaftNode) Id() int {
 	return rn.rc.Id
 }
 
 // Id of leader. -1 if unknown
-func (rn *RaftNode) LeaderId() int{
+func (rn *RaftNode) LeaderId() int {
 	return rn.sm.votedFor
 }
+
 // Signal to shut down all goroutines, stop sockets, flush log and close it, cancel timers.
-func (rn *RaftNode) Shutdown(){
+func (rn *RaftNode) Shutdown() {
 	//rmlog(rn.rc.LogDir+"/logfile")
 	//rmlog(rn.rc.StateDir+"/stateFile")
 
@@ -174,20 +191,31 @@ func (rn *RaftNode) processEvents() {
 		select {
 		case ev = <-rn.EventCh:
 			actions = rn.sm.ProcessEvent(ev)
+	//		fmt.Printf("Node Id : %v Actions : %v\n", rn.rc.Id, actions)
 			rn.doActions(actions)
-		case ev = <-rn.TimeoutCh:
-			actions = rn.sm.ProcessEvent(ev)
+	//	case ev = <-rn.TimeoutCh:
+		case <- rn.timer.C:
+//			fmt.Printf("ID: %v Timeout event generated\n", rn.rc.Id)
+			actions = rn.sm.ProcessEvent(TimeoutEvent{})
 			rn.doActions(actions)
 		case env := <-rn.srvr.Inbox():
 			switch env.Msg.(type) {
-			case VoteRequestEvent:
+			case VoteRequestEvent:				
 				ev = env.Msg.(VoteRequestEvent)
-			case VoteResponseEvent:
+//				fmt.Printf("%v Id VoteRequestEvent Received \n", rn.rc.Id)
+//				PrintVoteReqEvent(ev.(VoteRequestEvent))
+			case VoteResponseEvent:			
 				ev = env.Msg.(VoteResponseEvent)
+//				fmt.Printf("%v Id VoteResponseEvent Received\n", rn.rc.Id)
+//				PrintVoteResEvent(ev.(VoteResponseEvent))
 			case AppendEntriesRequestEvent:
+//				fmt.Printf("%v Id AppendEntriesRequestEvent  Received\n", rn.rc.Id)
 				ev = env.Msg.(AppendEntriesRequestEvent)
+//				PrintAppendEntriesReqEvent(ev.(AppendEntriesRequestEvent))
 			case AppendEntriesResponseEvent:
+//				fmt.Printf("%v Id AppendEntriesResponseEvent Received\n", rn.rc.Id)
 				ev = env.Msg.(AppendEntriesResponseEvent)
+//				PrintAppendEntriesResEvent(ev.(AppendEntriesResponseEvent))
 			}
 			rn.EventCh <- ev
 		}
@@ -200,8 +228,20 @@ func (rn *RaftNode) doActions(actions []interface{}) {
 		ac = actions[i]
 		switch ac.(type) {
 		case Alarm:
+			
 			res := ac.(Alarm)
-			rn.timeoutVal += 1
+//			fmt.Printf("Id : %v Alarm Received, Time : %v\n", rn.rc.Id, res.t)
+//			rn.timeoutVal += 1
+//			fmt.Printf("channel len : %v\n",len(rn.AlarmSetCh))
+		//	if(rn.TimeoutVal!=0){
+/*			if(len(rn.AlarmSetCh)!=0){
+				go func(){
+					rn.AlarmResetCh <- true
+				}()
+			}
+*/			
+//			fmt.Printf("channel len : %v\n",len(rn.AlarmCh))
+	//		fmt.Printf("Id : %v Time out val :%v\n", rn.rc.Id, rn.timeoutVal)
 			go rn.AlarmHandler(res)
 		case Send:
 			res := ac.(Send)
@@ -227,4 +267,21 @@ func assert(val bool) {
 func rmlog(lgFile string) {
 	os.RemoveAll(lgFile)
 }
+
+func PrintVoteReqEvent (ev VoteRequestEvent){
+	fmt.Printf("Term : %v, CandidateId : %v, LastLogIndex :%v , LastLogTerm : %v\n", ev.Term, ev.CandidateId, ev.LastLogIndex, ev.LastLogTerm)
+}
+
+func PrintVoteResEvent (ev VoteResponseEvent){
+	fmt.Printf("Term : %v, IsVoteGranted : %v\n", ev.Term, ev.IsVoteGranted )
+}
+
+func PrintAppendEntriesReqEvent (ev AppendEntriesRequestEvent){
+	fmt.Printf("Term : %v, LeaderId : %v, PrevLogIndex : %v, PrevLogTerm: %v, Data : %v, LeaderCommitIndex : %v\n", ev.Term, ev.LeaderId, ev.PrevLogIndex, ev.PrevLogTerm, ev.Data, ev.LeaderCommitIndex)
+}
+
+func PrintAppendEntriesResEvent (ev AppendEntriesResponseEvent){
+	fmt.Printf("FromID : %v, Term : %v , IsSuccessful : %v\n ", ev.FromId, ev.Term, ev.IsSuccessful)
+}
+
 
