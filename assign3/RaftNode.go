@@ -24,14 +24,11 @@ type RaftNode struct {
 	sm         StateMachine
 	srvr       cluster.Server    // server object for communication
 	EventCh    chan interface{}  // for any event other than timeout
-//	TimeoutCh  chan TimeoutEvent //for timeout events
 	CommitCh   chan CommitInfo   //for committed entries
 	timer *time.Timer
-
-//	TimeoutVal int64
-//	AlarmResetCh chan bool
-//	AlarmSetCh chan bool
+	quit chan bool
 }
+
 
 type NetConfig struct {
 	Id   int
@@ -61,13 +58,9 @@ func New(RaftNode_config RaftConfig) RaftNode {
 	rn.rc = RaftNode_config
 	rn.sm = InitializeStateMachine(RaftNode_config)
 	rn.EventCh = make(chan interface{}, 1000)
-//	rn.TimeoutCh = make(chan TimeoutEvent)
 	rn.CommitCh = make(chan CommitInfo, 1000)
 	rn.timer = time.NewTimer(time.Duration(RaftNode_config.ElectionTimeout)*time.Millisecond)
-//	rn.AlarmResetCh = make(chan bool,1)
-//	rn.AlarmSetCh = make(chan bool,1)
-//	rn.TimeoutVal = 0
-
+	rn.quit = make(chan bool)
 	rn.srvr, _ = cluster.New(RaftNode_config.Id, "Config.json") //make server object for communication
 	// register events
 	gob.Register(VoteRequestEvent{})
@@ -75,13 +68,6 @@ func New(RaftNode_config RaftConfig) RaftNode {
 	gob.Register(AppendEntriesRequestEvent{})
 	gob.Register(AppendEntriesResponseEvent{})
 
-	// call election timeout
-	//go func() {
-	//	rn.AlarmHandler(Alarm{t: Random(RaftNode_config.ElectionTimeout)})
-
-	//	time.Sleep(time.Duration(Random(RaftNode_config.ElectionTimeout)) * time.Millisecond)
-	//	(rn.TimeoutCh) <- TimeoutEvent{}
-	//}()
 	return rn
 }
 
@@ -141,7 +127,7 @@ func InitializeStateMachine(RaftNode_config RaftConfig) StateMachine {
 
 // Client's message to Raft node
 func (rn *RaftNode) Append(data []byte) {
-	fmt.Printf("Id : %v Append event\n", rn.rc.Id)
+//	fmt.Printf("Id : %v Append event\n", rn.rc.Id)
 	rn.EventCh <- AppendEvent{Data: data}
 }
 
@@ -179,9 +165,11 @@ func (rn *RaftNode) LeaderId() int {
 
 // Signal to shut down all goroutines, stop sockets, flush log and close it, cancel timers.
 func (rn *RaftNode) Shutdown() {
-	//rmlog(rn.rc.LogDir+"/logfile")
-	//rmlog(rn.rc.StateDir+"/stateFile")
-
+//	rmlog(rn.rc.LogDir+"/logfile")
+//	rmlog(rn.rc.StateDir+"/stateFile")
+	rn.quit<-true
+	rn.srvr.Close()
+	
 }
 
 func (rn *RaftNode) processEvents() {
@@ -216,8 +204,11 @@ func (rn *RaftNode) processEvents() {
 				ev = env.Msg.(AppendEntriesResponseEvent)
 //				fmt.Printf("%v Id AppendEntriesResponseEvent Received\n", rn.rc.Id)
 //				PrintAppendEntriesResEvent(ev.(AppendEntriesResponseEvent))
+
 			}
 			rn.EventCh <- ev
+		case <- rn.quit :
+			return
 		}
 	}
 }

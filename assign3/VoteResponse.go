@@ -1,6 +1,6 @@
 package main
 
-import "fmt"
+//import "fmt"
 
 type VoteResponseEvent struct {
 	Term          int
@@ -44,7 +44,7 @@ func (sm *StateMachine) VoteResponseCandidate(msg VoteResponseEvent) []interface
 		if sm.yesVotesNum >= (len(sm.myconfig.peer)/2)+1 {
 			// Elect it as leader
 			sm.state = "LEADER"
-			fmt.Printf("Leader Elected: %v, term=%v \n", sm.myconfig.myId, sm.currentTerm)
+//			fmt.Printf("Leader Elected: %v, term=%v \n", sm.myconfig.myId, sm.currentTerm)
 			//store the state
 			action = append(action, StateStore{sm.state, sm.currentTerm, sm.votedFor})
 			var lastlogTerm int

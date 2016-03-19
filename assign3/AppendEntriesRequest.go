@@ -1,6 +1,6 @@
 package main
 
-import "fmt"
+//import "fmt"
 
 type AppendEntriesRequestEvent struct {
 	Term              int
@@ -81,7 +81,7 @@ func (sm *StateMachine) AppendEntriesRequestFollower(msg AppendEntriesRequestEve
 			action = append(action, Send{PeerId: msg.LeaderId, Event: AppendEntriesResponseEvent{FromId: sm.myconfig.myId, Term: sm.currentTerm, IsSuccessful: true, Index: sm.logCurrentIndex}})
 			if msg.LeaderCommitIndex > sm.logCommitIndex {
 				for j := sm.logCommitIndex + 1; j <= Min(msg.LeaderCommitIndex, sm.logCurrentIndex); j++ {
-					fmt.Printf("Id: %v Commit Index:%v\n", sm.myconfig.myId, j)
+//					fmt.Printf("Id: %v Commit Index:%v\n", sm.myconfig.myId, j)
 					action = append(action, Commit{Index: j, Data: sm.log[j].Cmd, Err: nil})
 				}
 				sm.logCommitIndex = Min(msg.LeaderCommitIndex, sm.logCurrentIndex)

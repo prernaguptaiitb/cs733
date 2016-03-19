@@ -4,7 +4,7 @@ import (
 	"github.com/cs733-iitb/cluster"
 	"github.com/cs733-iitb/log"
 	"time"
-	"fmt"
+//	"fmt"
 )
 
 func (rn *RaftNode) AlarmHandler(ac Alarm) {
@@ -35,7 +35,7 @@ func (rn *RaftNode) SendHandler(ac Send) {
 }
 
 func (rn *RaftNode) CommitHandler(ac Commit) {
-	fmt.Printf("%v Commit generated\n", rn.rc.Id)
+//	fmt.Printf("%v Commit generated\n", rn.rc.Id)
 	var ci CommitInfo
 	ci.Data = ac.Data
 	ci.Index = ac.Index

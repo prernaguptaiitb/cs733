@@ -44,6 +44,6 @@ func (sm *StateMachine) AppendLeader(msg AppendEvent) []interface{} {
 
 func (sm *StateMachine) AppendFollowerorCandidate(msg AppendEvent) []interface{} {
 	var action []interface{}
-	action = append(action, Commit{-1, msg.Data, errors.New("Error in committing. Not a leader")})
+	action = append(action, Commit{-1, msg.Data, errors.New("Error in committing. Not a leader. Redirect")})
 	return action
 }
