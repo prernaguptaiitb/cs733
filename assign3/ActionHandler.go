@@ -4,7 +4,7 @@ import (
 	"github.com/cs733-iitb/cluster"
 	"github.com/cs733-iitb/log"
 	"time"
-//	"fmt"
+	//	"fmt"
 )
 
 func (rn *RaftNode) AlarmHandler(ac Alarm) {
@@ -15,27 +15,27 @@ func (rn *RaftNode) SendHandler(ac Send) {
 	var ev interface{}
 	switch ac.Event.(type) {
 	case VoteRequestEvent:
-//		fmt.Printf("%v Id VoteRequestEvent Send \n", rn.rc.Id)
+		//		fmt.Printf("%v Id VoteRequestEvent Send \n", rn.rc.Id)
 		ev = ac.Event.(VoteRequestEvent)
-//		PrintVoteReqEvent(ev.(VoteRequestEvent))
+		//		PrintVoteReqEvent(ev.(VoteRequestEvent))
 	case VoteResponseEvent:
 		ev = ac.Event.(VoteResponseEvent)
-//		fmt.Printf("%v Id VoteResponseEvent Send\n", rn.rc.Id)
-//		PrintVoteResEvent(ev.(VoteResponseEvent))
+		//		fmt.Printf("%v Id VoteResponseEvent Send\n", rn.rc.Id)
+		//		PrintVoteResEvent(ev.(VoteResponseEvent))
 	case AppendEntriesRequestEvent:
-//		fmt.Printf("%v Id AppendEntriesRequestEvent  send\n", rn.rc.Id)
+		//		fmt.Printf("%v Id AppendEntriesRequestEvent  send\n", rn.rc.Id)
 		ev = ac.Event.(AppendEntriesRequestEvent)
-//		PrintAppendEntriesReqEvent(ev.(AppendEntriesRequestEvent))
+		//		PrintAppendEntriesReqEvent(ev.(AppendEntriesRequestEvent))
 	case AppendEntriesResponseEvent:
-//		fmt.Printf("%v Id AppendEntriesResponseEvent Send\n", rn.rc.Id)
+		//		fmt.Printf("%v Id AppendEntriesResponseEvent Send\n", rn.rc.Id)
 		ev = ac.Event.(AppendEntriesResponseEvent)
-//		PrintAppendEntriesResEvent(ev.(AppendEntriesResponseEvent))
+		//		PrintAppendEntriesResEvent(ev.(AppendEntriesResponseEvent))
 	}
 	rn.srvr.Outbox() <- &cluster.Envelope{Pid: ac.PeerId, Msg: ev}
 }
 
 func (rn *RaftNode) CommitHandler(ac Commit) {
-//	fmt.Printf("%v Commit generated\n", rn.rc.Id)
+	//	fmt.Printf("%v Commit generated\n", rn.rc.Id)
 	var ci CommitInfo
 	ci.Data = ac.Data
 	ci.Index = ac.Index
@@ -44,7 +44,7 @@ func (rn *RaftNode) CommitHandler(ac Commit) {
 }
 
 func (rn *RaftNode) LogStoreHandler(ac LogStore) {
-//	fmt.Printf("%v LogStore generated\n", rn.rc.Id)
+	//	fmt.Printf("%v LogStore generated\n", rn.rc.Id)
 	lgFile := rn.rc.LogDir + "/" + "logfile"
 	lg, err := log.Open(lgFile)
 	lg.RegisterSampleEntry(LogEntry{})
@@ -60,7 +60,7 @@ func (rn *RaftNode) LogStoreHandler(ac LogStore) {
 }
 
 func (rn *RaftNode) StateStoreHandler(ac StateStore) {
-//	fmt.Printf("%v StateStore generated\n", rn.rc.Id)
+	//	fmt.Printf("%v StateStore generated\n", rn.rc.Id)
 	stateFile := rn.rc.StateDir + "/" + "mystate"
 	state, err := log.Open(stateFile)
 	defer state.Close()

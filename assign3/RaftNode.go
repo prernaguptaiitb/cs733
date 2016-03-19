@@ -7,7 +7,7 @@ import (
 	"github.com/cs733-iitb/log"
 	"os"
 	"time"
-//	"reflect"
+	//	"reflect"
 )
 
 // data goes in via Append, comes out as CommitInfo from the node's CommitChannel
@@ -20,15 +20,14 @@ type CommitInfo struct {
 
 type RaftNode struct {
 	// implements Node interface
-	rc         RaftConfig
-	sm         StateMachine
-	srvr       cluster.Server    // server object for communication
-	EventCh    chan interface{}  // for any event other than timeout
-	CommitCh   chan CommitInfo   //for committed entries
-	timer *time.Timer
-	quit chan bool
+	rc       RaftConfig
+	sm       StateMachine
+	srvr     cluster.Server   // server object for communication
+	EventCh  chan interface{} // for any event other than timeout
+	CommitCh chan CommitInfo  //for committed entries
+	timer    *time.Timer
+	quit     chan bool
 }
-
 
 type NetConfig struct {
 	Id   int
@@ -59,7 +58,7 @@ func New(RaftNode_config RaftConfig) RaftNode {
 	rn.sm = InitializeStateMachine(RaftNode_config)
 	rn.EventCh = make(chan interface{}, 1000)
 	rn.CommitCh = make(chan CommitInfo, 1000)
-	rn.timer = time.NewTimer(time.Duration(RaftNode_config.ElectionTimeout)*time.Millisecond)
+	rn.timer = time.NewTimer(time.Duration(RaftNode_config.ElectionTimeout) * time.Millisecond)
 	rn.quit = make(chan bool)
 	rn.srvr, _ = cluster.New(RaftNode_config.Id, "Config.json") //make server object for communication
 	// register events
@@ -127,7 +126,7 @@ func InitializeStateMachine(RaftNode_config RaftConfig) StateMachine {
 
 // Client's message to Raft node
 func (rn *RaftNode) Append(data []byte) {
-//	fmt.Printf("Id : %v Append event\n", rn.rc.Id)
+	//	fmt.Printf("Id : %v Append event\n", rn.rc.Id)
 	rn.EventCh <- AppendEvent{Data: data}
 }
 
@@ -165,11 +164,11 @@ func (rn *RaftNode) LeaderId() int {
 
 // Signal to shut down all goroutines, stop sockets, flush log and close it, cancel timers.
 func (rn *RaftNode) Shutdown() {
-//	rmlog(rn.rc.LogDir+"/logfile")
-//	rmlog(rn.rc.StateDir+"/stateFile")
-	rn.quit<-true
+	//	rmlog(rn.rc.LogDir+"/logfile")
+	//	rmlog(rn.rc.StateDir+"/stateFile")
+	rn.quit <- true
 	rn.srvr.Close()
-	
+
 }
 
 func (rn *RaftNode) processEvents() {
@@ -179,35 +178,35 @@ func (rn *RaftNode) processEvents() {
 		select {
 		case ev = <-rn.EventCh:
 			actions = rn.sm.ProcessEvent(ev)
-	//		fmt.Printf("Node Id : %v Actions : %v\n", rn.rc.Id, actions)
+			//		fmt.Printf("Node Id : %v Actions : %v\n", rn.rc.Id, actions)
 			rn.doActions(actions)
-	//	case ev = <-rn.TimeoutCh:
-		case <- rn.timer.C:
-//			fmt.Printf("ID: %v Timeout event generated\n", rn.rc.Id)
+			//	case ev = <-rn.TimeoutCh:
+		case <-rn.timer.C:
+			//			fmt.Printf("ID: %v Timeout event generated\n", rn.rc.Id)
 			actions = rn.sm.ProcessEvent(TimeoutEvent{})
 			rn.doActions(actions)
 		case env := <-rn.srvr.Inbox():
 			switch env.Msg.(type) {
-			case VoteRequestEvent:				
+			case VoteRequestEvent:
 				ev = env.Msg.(VoteRequestEvent)
-//				fmt.Printf("%v Id VoteRequestEvent Received \n", rn.rc.Id)
-//				PrintVoteReqEvent(ev.(VoteRequestEvent))
-			case VoteResponseEvent:			
+				//				fmt.Printf("%v Id VoteRequestEvent Received \n", rn.rc.Id)
+				//				PrintVoteReqEvent(ev.(VoteRequestEvent))
+			case VoteResponseEvent:
 				ev = env.Msg.(VoteResponseEvent)
-//				fmt.Printf("%v Id VoteResponseEvent Received\n", rn.rc.Id)
-//				PrintVoteResEvent(ev.(VoteResponseEvent))
+				//				fmt.Printf("%v Id VoteResponseEvent Received\n", rn.rc.Id)
+				//				PrintVoteResEvent(ev.(VoteResponseEvent))
 			case AppendEntriesRequestEvent:
 				ev = env.Msg.(AppendEntriesRequestEvent)
-//				fmt.Printf("%v Id AppendEntriesRequestEvent  Received\n", rn.rc.Id)
-//				PrintAppendEntriesReqEvent(ev.(AppendEntriesRequestEvent))
+				//				fmt.Printf("%v Id AppendEntriesRequestEvent  Received\n", rn.rc.Id)
+				//				PrintAppendEntriesReqEvent(ev.(AppendEntriesRequestEvent))
 			case AppendEntriesResponseEvent:
 				ev = env.Msg.(AppendEntriesResponseEvent)
-//				fmt.Printf("%v Id AppendEntriesResponseEvent Received\n", rn.rc.Id)
-//				PrintAppendEntriesResEvent(ev.(AppendEntriesResponseEvent))
+				//				fmt.Printf("%v Id AppendEntriesResponseEvent Received\n", rn.rc.Id)
+				//				PrintAppendEntriesResEvent(ev.(AppendEntriesResponseEvent))
 
 			}
 			rn.EventCh <- ev
-		case <- rn.quit :
+		case <-rn.quit:
 			return
 		}
 	}
@@ -219,20 +218,20 @@ func (rn *RaftNode) doActions(actions []interface{}) {
 		ac = actions[i]
 		switch ac.(type) {
 		case Alarm:
-			
+
 			res := ac.(Alarm)
-//			fmt.Printf("Id : %v Alarm Received, Time : %v\n", rn.rc.Id, res.t)
-//			rn.timeoutVal += 1
-//			fmt.Printf("channel len : %v\n",len(rn.AlarmSetCh))
-		//	if(rn.TimeoutVal!=0){
-/*			if(len(rn.AlarmSetCh)!=0){
-				go func(){
-					rn.AlarmResetCh <- true
-				}()
-			}
-*/			
-//			fmt.Printf("channel len : %v\n",len(rn.AlarmCh))
-	//		fmt.Printf("Id : %v Time out val :%v\n", rn.rc.Id, rn.timeoutVal)
+			//			fmt.Printf("Id : %v Alarm Received, Time : %v\n", rn.rc.Id, res.t)
+			//			rn.timeoutVal += 1
+			//			fmt.Printf("channel len : %v\n",len(rn.AlarmSetCh))
+			//	if(rn.TimeoutVal!=0){
+			/*			if(len(rn.AlarmSetCh)!=0){
+							go func(){
+								rn.AlarmResetCh <- true
+							}()
+						}
+			*/
+			//			fmt.Printf("channel len : %v\n",len(rn.AlarmCh))
+			//		fmt.Printf("Id : %v Time out val :%v\n", rn.rc.Id, rn.timeoutVal)
 			go rn.AlarmHandler(res)
 		case Send:
 			res := ac.(Send)
@@ -259,20 +258,18 @@ func rmlog(lgFile string) {
 	os.RemoveAll(lgFile)
 }
 
-func PrintVoteReqEvent (ev VoteRequestEvent){
+func PrintVoteReqEvent(ev VoteRequestEvent) {
 	fmt.Printf("Term : %v, CandidateId : %v, LastLogIndex :%v , LastLogTerm : %v\n", ev.Term, ev.CandidateId, ev.LastLogIndex, ev.LastLogTerm)
 }
 
-func PrintVoteResEvent (ev VoteResponseEvent){
-	fmt.Printf("Term : %v, IsVoteGranted : %v\n", ev.Term, ev.IsVoteGranted )
+func PrintVoteResEvent(ev VoteResponseEvent) {
+	fmt.Printf("Term : %v, IsVoteGranted : %v\n", ev.Term, ev.IsVoteGranted)
 }
 
-func PrintAppendEntriesReqEvent (ev AppendEntriesRequestEvent){
+func PrintAppendEntriesReqEvent(ev AppendEntriesRequestEvent) {
 	fmt.Printf("Term : %v, LeaderId : %v, PrevLogIndex : %v, PrevLogTerm: %v, Data : %v, LeaderCommitIndex : %v\n", ev.Term, ev.LeaderId, ev.PrevLogIndex, ev.PrevLogTerm, ev.Data, ev.LeaderCommitIndex)
 }
 
-func PrintAppendEntriesResEvent (ev AppendEntriesResponseEvent){
+func PrintAppendEntriesResEvent(ev AppendEntriesResponseEvent) {
 	fmt.Printf("FromID : %v, Term : %v , IsSuccessful : %v\n ", ev.FromId, ev.Term, ev.IsSuccessful)
 }
-
-

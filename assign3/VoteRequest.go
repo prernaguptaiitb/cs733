@@ -56,7 +56,7 @@ func (sm *StateMachine) VoteRequestLeaderorCandidate(msg VoteRequestEvent) []int
 }
 
 func (sm *StateMachine) VoteRequestFollower(msg VoteRequestEvent) []interface{} {
-	
+
 	var action []interface{}
 	flag := false
 	if (sm.currentTerm == msg.Term && (sm.votedFor == 0 /*assuming no server has id=0 */ || sm.votedFor == msg.CandidateId)) || (sm.currentTerm < msg.Term) {
@@ -78,7 +78,7 @@ func (sm *StateMachine) VoteRequestFollower(msg VoteRequestEvent) []interface{} 
 			if sm.currentTerm < msg.Term {
 				flag = true
 			}
-//		fmt.Printf("ID :%v Alarm increased \n ", sm.myconfig.myId)
+			//		fmt.Printf("ID :%v Alarm increased \n ", sm.myconfig.myId)
 			action = append(action, Alarm{t: Random(sm.electionTO)})
 			action = append(action, Send{PeerId: msg.CandidateId, Event: VoteResponseEvent{Term: sm.currentTerm, IsVoteGranted: true}})
 		} else {

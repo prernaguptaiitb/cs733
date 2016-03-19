@@ -4,7 +4,7 @@ type AppendEntriesResponseEvent struct {
 	FromId       int
 	Term         int
 	IsSuccessful bool
-	Index int 
+	Index        int
 }
 
 func (sm *StateMachine) AppendEntriesResponse(msg AppendEntriesResponseEvent) []interface{} {
@@ -39,9 +39,9 @@ func (sm *StateMachine) AppendEntriesResponseLeader(msg AppendEntriesResponseEve
 			// follower rejected because previous entries didn't match
 			sm.nextIndex[i] = Max(0, sm.nextIndex[i]-1)
 			var prevlogterm int
-			if sm.nextIndex[i]==0{
+			if sm.nextIndex[i] == 0 {
 				prevlogterm = 0
-			}else{
+			} else {
 				prevlogterm = sm.log[sm.nextIndex[i]-1].Term
 			}
 			action = append(action, Send{PeerId: msg.FromId, Event: AppendEntriesRequestEvent{Term: sm.currentTerm, LeaderId: sm.myconfig.myId, PrevLogIndex: sm.nextIndex[i] - 1, PrevLogTerm: prevlogterm, Data: sm.log[sm.nextIndex[i]:], LeaderCommitIndex: sm.logCommitIndex}})
