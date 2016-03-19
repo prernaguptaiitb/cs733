@@ -9,26 +9,6 @@ import (
 
 func (rn *RaftNode) AlarmHandler(ac Alarm) {
 	rn.timer.Reset(time.Duration(ac.t) * time.Millisecond)
-//	fmt.Printf("Id : %v Alarm Generated\n", rn.rc.Id)
-//	val := rn.timeoutVal
-	//rn.TimeoutVal=1
-/*	go func(){rn.AlarmSetCh <- true}()
-
-	select{
-		case <-rn.AlarmResetCh:
-  //      	fmt.Printf("Id : %v Alarm Reset\n", rn.rc.Id)
-    	case <-time.After(time.Duration(ac.t) * time.Millisecond):
-  //  		fmt.Printf("Id : %v Time out called\n", rn.rc.Id)
-        	(rn.TimeoutCh) <- TimeoutEvent{}
-	}
-
-	<-rn.AlarmSetCh
-//	rn.TimeoutVal=0
-	
-//	time.Sleep(time.Duration(ac.t) * time.Millisecond)
-//	if val == rn.timeoutVal {
-//		(rn.TimeoutCh) <- TimeoutEvent{}
-//	}*/
 }
 
 func (rn *RaftNode) SendHandler(ac Send) {
@@ -64,7 +44,7 @@ func (rn *RaftNode) CommitHandler(ac Commit) {
 }
 
 func (rn *RaftNode) LogStoreHandler(ac LogStore) {
-	fmt.Printf("%v LogStore generated\n", rn.rc.Id)
+//	fmt.Printf("%v LogStore generated\n", rn.rc.Id)
 	lgFile := rn.rc.LogDir + "/" + "logfile"
 	lg, err := log.Open(lgFile)
 	lg.RegisterSampleEntry(LogEntry{})

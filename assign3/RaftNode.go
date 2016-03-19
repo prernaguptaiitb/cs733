@@ -209,12 +209,12 @@ func (rn *RaftNode) processEvents() {
 //				fmt.Printf("%v Id VoteResponseEvent Received\n", rn.rc.Id)
 //				PrintVoteResEvent(ev.(VoteResponseEvent))
 			case AppendEntriesRequestEvent:
-//				fmt.Printf("%v Id AppendEntriesRequestEvent  Received\n", rn.rc.Id)
 				ev = env.Msg.(AppendEntriesRequestEvent)
+//				fmt.Printf("%v Id AppendEntriesRequestEvent  Received\n", rn.rc.Id)
 //				PrintAppendEntriesReqEvent(ev.(AppendEntriesRequestEvent))
 			case AppendEntriesResponseEvent:
-//				fmt.Printf("%v Id AppendEntriesResponseEvent Received\n", rn.rc.Id)
 				ev = env.Msg.(AppendEntriesResponseEvent)
+//				fmt.Printf("%v Id AppendEntriesResponseEvent Received\n", rn.rc.Id)
 //				PrintAppendEntriesResEvent(ev.(AppendEntriesResponseEvent))
 			}
 			rn.EventCh <- ev

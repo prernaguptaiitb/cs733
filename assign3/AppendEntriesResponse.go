@@ -4,6 +4,7 @@ type AppendEntriesResponseEvent struct {
 	FromId       int
 	Term         int
 	IsSuccessful bool
+	Index int 
 }
 
 func (sm *StateMachine) AppendEntriesResponse(msg AppendEntriesResponseEvent) []interface{} {
@@ -47,8 +48,8 @@ func (sm *StateMachine) AppendEntriesResponseLeader(msg AppendEntriesResponseEve
 		}
 	} else {
 		//successfully appended at the follower.Update matchIndex and nextIndex
-		sm.nextIndex[i] = sm.logCurrentIndex + 1
-		sm.matchIndex[i] = sm.logCurrentIndex
+		sm.nextIndex[i] = msg.Index + 1
+		sm.matchIndex[i] = msg.Index
 		//	FromId := i
 		maxIndex := -1
 		//check if we can commit something

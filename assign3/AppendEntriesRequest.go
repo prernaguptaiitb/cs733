@@ -1,5 +1,7 @@
 package main
 
+import "fmt"
+
 type AppendEntriesRequestEvent struct {
 	Term              int
 	LeaderId          int
@@ -26,7 +28,7 @@ func (sm *StateMachine) AppendEntriesRequestLeaderorCandidate(msg AppendEntriesR
 	var action []interface{}
 	if sm.currentTerm > msg.Term {
 		//request from invalid leader . Send leaders current Term and failure
-		action = append(action, Send{msg.LeaderId, AppendEntriesResponseEvent{FromId: sm.myconfig.myId, Term: sm.currentTerm, IsSuccessful: false}})
+		action = append(action, Send{msg.LeaderId, AppendEntriesResponseEvent{FromId: sm.myconfig.myId, Term: sm.currentTerm, IsSuccessful: false, Index:sm.logCurrentIndex}})
 	} else {
 		//request from valid leader. Update the Term, change to follower state and then process RPC
 		if sm.currentTerm < msg.Term {
@@ -44,7 +46,7 @@ func (sm *StateMachine) AppendEntriesRequestFollower(msg AppendEntriesRequestEve
 	var action []interface{}
 	if sm.currentTerm > msg.Term {
 		//request from invalid leader - send leader’s current Term and failure
-		action = append(action, Send{PeerId: msg.LeaderId, Event: AppendEntriesResponseEvent{FromId: sm.myconfig.myId, Term: sm.currentTerm, IsSuccessful: false}})
+		action = append(action, Send{PeerId: msg.LeaderId, Event: AppendEntriesResponseEvent{FromId: sm.myconfig.myId, Term: sm.currentTerm, IsSuccessful: false, Index : sm.logCurrentIndex}})
 
 	} else {
 
@@ -63,7 +65,7 @@ func (sm *StateMachine) AppendEntriesRequestFollower(msg AppendEntriesRequestEve
 			l=-1
 		}
 		if (msg.PrevLogIndex != -1) && (l < msg.PrevLogIndex || sm.log[msg.PrevLogIndex].Term != msg.PrevLogTerm) {
-			action = append(action, Send{PeerId: msg.LeaderId, Event: AppendEntriesResponseEvent{FromId: sm.myconfig.myId, Term: sm.currentTerm, IsSuccessful: false}})
+			action = append(action, Send{PeerId: msg.LeaderId, Event: AppendEntriesResponseEvent{FromId: sm.myconfig.myId, Term: sm.currentTerm, IsSuccessful: false, Index: sm.logCurrentIndex}})
 		} else {
 		
 			//Delete all entries starting from PrevLogIndex+1 to logCurrentIndex and insert Data from PrevLogIndex+1
@@ -71,13 +73,15 @@ func (sm *StateMachine) AppendEntriesRequestFollower(msg AppendEntriesRequestEve
 			sm.log = append(sm.log, msg.Data...)
 			//generate logstore action
 			for i := msg.PrevLogIndex + 1; i < msg.PrevLogIndex+1+len(msg.Data); i++ {
+	//			fmt.Printf("ID: %v , LogStore--> Index:%v, LogData : %v\n",sm.myconfig.myId,i, msg.Data[i-msg.PrevLogIndex-1])
 				action = append(action, LogStore{Index: i, LogData: msg.Data[i-msg.PrevLogIndex-1]})
 			}
 			//Update logCurrentIndex
 			sm.logCurrentIndex = len(sm.log) - 1
-			action = append(action, Send{PeerId: msg.LeaderId, Event: AppendEntriesResponseEvent{FromId: sm.myconfig.myId, Term: sm.currentTerm, IsSuccessful: true}})
+			action = append(action, Send{PeerId: msg.LeaderId, Event: AppendEntriesResponseEvent{FromId: sm.myconfig.myId, Term: sm.currentTerm, IsSuccessful: true, Index: sm.logCurrentIndex}})
 			if msg.LeaderCommitIndex > sm.logCommitIndex {
 				for j := sm.logCommitIndex + 1; j <= Min(msg.LeaderCommitIndex, sm.logCurrentIndex); j++ {
+					fmt.Printf("Id: %v Commit Index:%v\n", sm.myconfig.myId, j)
 					action = append(action, Commit{Index: j, Data: sm.log[j].Cmd, Err: nil})
 				}
 				sm.logCommitIndex = Min(msg.LeaderCommitIndex, sm.logCurrentIndex)

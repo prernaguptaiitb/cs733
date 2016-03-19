@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"runtime"
 )
 
 type Peer struct {
@@ -70,7 +71,8 @@ func makeRafts(conf ClusterConfig) []RaftNode {
 		sd = "myStateDir" + strconv.Itoa(i)
 		clearFiles(sd+"/mystate")
 		initialState(sd)
-		rc := RaftConfig{cluster: clusterconf, Id: i, LogDir: ld, StateDir: sd, ElectionTimeout: 500, HeartbeatTimeout: 50}
+		eo:= 1000+10*i
+		rc := RaftConfig{cluster: clusterconf, Id: i, LogDir: ld, StateDir: sd, ElectionTimeout: eo, HeartbeatTimeout: 100}
 		rafts[i-1] = New(rc)
 		go rafts[i-1].processEvents()
 	}
@@ -95,18 +97,20 @@ func getLeaderID(rafts []RaftNode) int {
 }
 
 func TestBasic(t *testing.T) {
+	runtime.GOMAXPROCS(1010)
 	conf := readJSONFile()
 	rafts := makeRafts(conf)
-//	time.Sleep( 1000 * time.Millisecond)
+//	time.Sleep( 100 * time.Millisecond)
 	leaderId := 0 // leader Id = 0 indicates election failure
 	for leaderId == 0 {
-	//	time.Sleep( 100 * time.Millisecond)
+		
 		leaderId= getLeaderID(rafts)
 	}
+	time.Sleep( 10 * time.Millisecond)
 //	fmt.Printf("Leader id : %v\n", leaderId)
 	leader := rafts[leaderId-1]
 	leader.Append([]byte("read"))
-	time.Sleep( 10 * time.Second) 
+	time.Sleep( 60 * time.Second) 
 	for _, node:= range rafts {
 		select { // to avoid blocking on channel.
 			case ci := <- node.CommitChannel():
@@ -118,3 +122,9 @@ func TestBasic(t *testing.T) {
 		}
 	}
 }
+
+func TestMultipleAppends (t *testing.T){
+
+}
+
+

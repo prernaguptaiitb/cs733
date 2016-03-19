@@ -36,6 +36,9 @@ func (sm *StateMachine) VoteResponseFollower(msg VoteResponseEvent) []interface{
 }
 func (sm *StateMachine) VoteResponseCandidate(msg VoteResponseEvent) []interface{} {
 	var action []interface{}
+	if msg.Term < sm.currentTerm{
+		return action
+	}
 	if msg.IsVoteGranted == true {
 		sm.yesVotesNum += 1
 		if sm.yesVotesNum >= (len(sm.myconfig.peer)/2)+1 {

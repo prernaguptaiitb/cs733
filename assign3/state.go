@@ -1,11 +1,11 @@
 package main
-
+/*
 import (
 	
 	"math/rand"
-	"time"
+//	"time"
 )
-
+*/
 type Config struct {
 	myId int   //persistent
 	peer []int //persistent
@@ -69,6 +69,7 @@ func (sm *StateMachine) ProcessEvent(ev interface{}) []interface{} {
 
 func Random(min int) int {
 	//max := 2 * min
-	rand.Seed(time.Now().UnixNano())
-	return rand.Intn(min) + min
+//	rand.Seed(time.Now().UnixNano())
+//	return rand.Intn(min) + min
+	return min
 }
