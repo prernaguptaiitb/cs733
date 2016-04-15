@@ -1,5 +1,5 @@
 package main
-
+/*
 
 import (
 	"bufio"
@@ -513,3 +513,4 @@ func parseFirst(line string) (msg *Msg, err error) {
 		return msg, nil
 	}
 }
+*/

@@ -7,6 +7,7 @@ import (
 	"github.com/cs733-iitb/log"
 	"os"
 	"time"
+	"strconv"
 	//	"reflect"
 )
 
@@ -56,8 +57,8 @@ func New(RaftNode_config RaftConfig) RaftNode {
 	var rn RaftNode
 	rn.rc = RaftNode_config
 	rn.sm = InitializeStateMachine(RaftNode_config)
-	rn.EventCh = make(chan interface{}, 1000)
-	rn.CommitCh = make(chan CommitInfo, 1000)
+	rn.EventCh = make(chan interface{}, 10000)
+	rn.CommitCh = make(chan CommitInfo, 10000)
 	rn.timer = time.NewTimer(time.Duration(RaftNode_config.ElectionTimeout) * time.Millisecond)
 	rn.quit = make(chan bool)
 	rn.srvr, _ = cluster.New(RaftNode_config.Id, "Config.json") //make server object for communication
@@ -145,7 +146,7 @@ func (rn *RaftNode) Get(index int) (error, []byte) {
 	lgFile := rn.rc.LogDir + "/" + "logfile"
 	lg, err := log.Open(lgFile)
 	defer lg.Close()
-	assert(err == nil)
+//	assert(err == nil)
 	lgentry, err := lg.Get(int64(index))
 	le, _ := lgentry.(LogEntry)
 	data := le.Cmd
@@ -164,11 +165,33 @@ func (rn *RaftNode) LeaderId() int {
 
 // Signal to shut down all goroutines, stop sockets, flush log and close it, cancel timers.
 func (rn *RaftNode) Shutdown() {
-	//	rmlog(rn.rc.LogDir+"/logfile")
-	//	rmlog(rn.rc.StateDir+"/stateFile")
 	rn.quit <- true
 	rn.srvr.Close()
 
+}
+
+func InitializeState(sd string) {
+	stateFile := sd + "/" + "mystate"
+	st, err := log.Open(stateFile)
+	//st.SetCacheSize(50)
+	assert(err == nil)
+	st.RegisterSampleEntry(SMState{})
+	defer st.Close()
+	err = st.Append(SMState{State: "FOLLOWER", CurrentTerm: 0, VotedFor: 0})
+	assert(err == nil)
+}
+
+func BringNodeUp(i int, clusterconf []NetConfig) RaftNode{
+//	clusterconf := makeNetConfig(conf)
+	ld := "myLogDir" + strconv.Itoa(i)
+	sd := "myStateDir" + strconv.Itoa(i)
+	eo := 2000 + 100*i
+	rc := RaftConfig{cluster: clusterconf, Id: i, LogDir: ld, StateDir: sd, ElectionTimeout: eo, HeartbeatTimeout: 500}
+	rs := New(rc)
+	return rs
+
+//	rafts[i-1] = New(rc)
+//	go rafts[i-1].processEvents()
 }
 
 func (rn *RaftNode) processEvents() {

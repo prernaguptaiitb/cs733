@@ -15,4 +15,7 @@ type Node interface {
 	LeaderId() int
 	// Signal to shut down all goroutines, stop sockets, flush log and close it, cancel timers.
 	Shutdown()
+	//Bring Node up after shutdown or failure
+	BringNodeUp(conf ClusterConfig, i int, rafts []RaftNode)
+
 }

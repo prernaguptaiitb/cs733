@@ -45,6 +45,7 @@ type Msg struct {
 	// is the first letter after "ERR_", ('V' for ERR_VERSION, for
 	// example), except for "ERR_CMD_ERR", for which the kind is 'M'
 	Kind     byte
+	ClientId int64
 	Filename string
 	Contents []byte
 	Numbytes int
@@ -52,9 +53,9 @@ type Msg struct {
 	Version  int
 }
 
-func GetMsg(reader *bufio.Reader) (msg *Msg, msgerr error, fatalerr error) {
+func GetMsg(clientid int64, reader *bufio.Reader) (msg *Msg, msgerr error, fatalerr error) {
 	buf := make([]byte, MAX_FIRST_LINE_SIZE)
-	msg, msgerr, fatalerr = parseFirst(reader, buf)
+	msg, msgerr, fatalerr = parseFirst(clientid, reader, buf)
 	if fatalerr == nil {
 		if msg.Kind == 'w' /*write*/|| msg.Kind == 'c' /*cas*/|| msg.Kind == 'C' /*CONTENTS*/{
 			msg.Contents, fatalerr = parseSecond(reader, msg.Numbytes)
@@ -67,7 +68,7 @@ func GetMsg(reader *bufio.Reader) (msg *Msg, msgerr error, fatalerr error) {
 // etc. are fatal errors; it is not possible to know where the command ends, and so we cannot
 // recover to read the next command. The other errors are still errors, but we can at least
 // consume the entirety of the current command.
-func parseFirst(reader *bufio.Reader, buf []byte) (msg *Msg, msgerr error, fatalerr error) {
+func parseFirst(clientid int64, reader *bufio.Reader, buf []byte) (msg *Msg, msgerr error, fatalerr error) {
 	var err error
 	var msgstr string
 	var fields []string
@@ -166,7 +167,7 @@ func parseFirst(reader *bufio.Reader, buf []byte) (msg *Msg, msgerr error, fatal
 		if !response {
 			filename = fields[1]
 		}
-		return &Msg{Kind: kind, Filename: filename, Numbytes: numbytes, Exptime: exptime, Version: version}, msgerr, nil
+		return &Msg{Kind: kind, ClientId:clientid, Filename: filename, Numbytes: numbytes, Exptime: exptime, Version: version}, msgerr, nil
 	} else {
 		return nil, nil, fatalerr
 	}

@@ -1,16 +1,17 @@
 package main
-
+/*
 import (
 	//	"errors"
 	"encoding/json"
 	"fmt"
 	"github.com/cs733-iitb/log"
 	"io/ioutil"
-	"runtime"
+//	"runtime"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
+	"os"
 )
 
 type Peer struct {
@@ -22,21 +23,24 @@ type ClusterConfig struct {
 	Peers []Peer
 }
 
+func IfError(err error, msg string){
+	if err != nil {
+		fmt.Print("Error:", msg)
+		os.Exit(1)
+	}
+}
+
 func readJSONFile() ClusterConfig {
 	content, err := ioutil.ReadFile("Config.json")
-	if err != nil {
-		fmt.Print("Error:", err)
-	}
+	IfError(err,"Error in Reading Json File")
 	var conf ClusterConfig
 	err = json.Unmarshal(content, &conf)
-	if err != nil {
-		fmt.Print("Error:", err)
-	}
+	IfError(err,"Error in Unmarshaling Json File")
 	return conf
 }
 
-// This func creates a state file for storing initila state of each raft machine
-func initialState(sd string) {
+// This func creates a state file for storing initial state of each raft machine
+func InitialState(sd string) {
 	stateFile := sd + "/" + "mystate"
 	//	rmlog(stateFile)
 	st, err := log.Open(stateFile)
@@ -64,22 +68,23 @@ func makeNetConfig(conf ClusterConfig) []NetConfig {
 }
 
 func makeRafts(conf ClusterConfig) []RaftNode {
-	clusterconf := makeNetConfig(conf)
+//	clusterconf := makeNetConfig(conf)
 	//	clusterconfig:=[]NetConfig{{Id:1, Host:"localhost", Port:8001},{Id:2, Host:"localhost", Port:8002},{Id:3, Host:"localhost", Port:8003},{Id:4, Host:"localhost", Port:8004},{Id:5, Host:"localhost", Port:8005}}
 	rafts := make([]RaftNode, len(conf.Peers))
-	var ld string
+	//var ld string
 	var sd string
 	for i := 1; i <= len(conf.Peers); i++ {
 
-		ld = "myLogDir" + strconv.Itoa(i)
-		clearFiles(ld + "/logfile")
+	//	ld = "myLogDir" + strconv.Itoa(i)
+		clearFiles("myLogDir" + strconv.Itoa(i) + "/logfile")
 		sd = "myStateDir" + strconv.Itoa(i)
-		clearFiles(sd + "/mystate")
-		initialState(sd)
-		eo := 2000 + 100*i
-		rc := RaftConfig{cluster: clusterconf, Id: i, LogDir: ld, StateDir: sd, ElectionTimeout: eo, HeartbeatTimeout: 500}
-		rafts[i-1] = New(rc)
-		go rafts[i-1].processEvents()
+		clearFiles("myStateDir" + strconv.Itoa(i) + "/mystate")
+		InitialState(sd)
+		BringNodeUp(conf, i , rafts)
+	//	eo := 2000 + 100*i
+	//	rc := RaftConfig{cluster: clusterconf, Id: i, LogDir: ld, StateDir: sd, ElectionTimeout: eo, HeartbeatTimeout: 500}
+	//	rafts[i-1] = New(rc)
+	//	go rafts[i-1].processEvents()
 	}
 
 	return rafts
@@ -293,3 +298,4 @@ func TestLeaderShutdown(t *testing.T) {
 	SystemShutdown(rafts, nil)
 	fmt.Println("Pass : Test Leader ShutDown")
 }
+*/
