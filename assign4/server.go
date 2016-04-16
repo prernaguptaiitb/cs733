@@ -37,9 +37,6 @@ type ClientEntry struct{
 	Err error
 }*/
 
-var server Server
-
-
 func encode(data fs.Msg) ([]byte, error) {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
@@ -70,12 +67,17 @@ func assert(val bool) {
 	}
 }
 */
-func (s *Server) getAddress(id int) string{
+func (server *Server) getAddress(id int) string{
+//	fmt.Printf("id %v\n", id)
+//	fmt.Printf("struct %v\n", server.fsconf)
 	// find address of this server
 	var address string
 	for i:=0;i<len(server.fsconf);i++{
 		if id==server.fsconf[i].Id{
 			address=server.fsconf[i].Address
+			break
+
+//			fmt.Printf("adress: %v\n", address)
 		}
 	}
 	return address
@@ -107,6 +109,7 @@ func reply(conn *net.TCPConn, msg *fs.Msg) bool {
 	case 'I':
 		resp = "ERR_INTERNAL"
 	case 'R':
+
 		resp = "ERR_REDIRECT "+string(msg.Contents[:])
 
 	default:
@@ -122,7 +125,7 @@ func reply(conn *net.TCPConn, msg *fs.Msg) bool {
 	return err == nil
 }
 
-func serve(clientid int64, clientCommitCh chan error, conn *net.TCPConn, rc RaftNode) {
+func (server *Server) serve(clientid int64, clientCommitCh chan error, conn *net.TCPConn) {
 	
 	reader := bufio.NewReader(conn)
 	for {
@@ -153,11 +156,13 @@ func serve(clientid int64, clientCommitCh chan error, conn *net.TCPConn, rc Raft
 				continue
 			}
 			// append the msg to the raft node log 
-			rc.Append(dbytes)
+			server.rn.Append(dbytes)
 			//wait for the msg to appear on the client commit channel
 			errval := <- clientCommitCh
+//			fmt.Printf("Err val: %v , ServerId: %v\n", errval, rc.Id())
 			if errval != nil {
-				msgContent := server.getAddress(rc.LeaderId())
+				msgContent := server.getAddress(server.rn.LeaderId())
+//				fmt.Printf("Leader address : %v\n", rc.LeaderId())
 				reply(conn, &fs.Msg{Kind: 'R', Contents: []byte(msgContent)})
 				conn.Close()
 				break
@@ -174,9 +179,9 @@ func serve(clientid int64, clientCommitCh chan error, conn *net.TCPConn, rc Raft
 
 
 
-func (rn *RaftNode) ListenCommitChannel(){
+func (server *Server) ListenCommitChannel(){
 	getMsg := func(index int) {
-		err, emsg := rn.Get(index)
+		err, emsg := server.rn.Get(index)
 		if(err!=nil){
 			fmt.Printf("ListenCommitChannel: Error in getting message 4")
 			assert(err==nil)
@@ -194,14 +199,14 @@ func (rn *RaftNode) ListenCommitChannel(){
 	var prevLogIndexProcessed = -1
 	for{
 		//listen on commit channel of raft node 
-		commitval := <-rn.CommitChannel()
+		commitval := <-server.rn.CommitChannel()
 		if(commitval.Err != nil){
 			//Redirect the client. Assume the server for which this server voted is the leader. So, redirect it there.
 			dmsg,err :=decode(commitval.Data)
 			if err!=nil{
-			fmt.Printf("ListenCommitChannel: Error in decoding message 1")
-			assert(err==nil)
-		}
+				fmt.Printf("ListenCommitChannel: Error in decoding message 1")
+				assert(err==nil)
+			}
 //			server.ClientChanMap[dmsg.ClientId]<-ClientEntry{dmsg,errors.New("ERR_RED")}
 			server.ClientChanMap[dmsg.ClientId]<- errors.New("ERR_REDIRECT")
 
@@ -231,6 +236,7 @@ func (rn *RaftNode) ListenCommitChannel(){
 }
 
 func serverMain(id int, conf ClusterConfig) {
+	var server Server
 	gob.Register(MsgEntry{}) 
 	var clientid int64 = 0  
 	
@@ -259,7 +265,7 @@ func serverMain(id int, conf ClusterConfig) {
 	raftconf := makeRaftNetConfig(conf)	
 	server.rn = BringNodeUp(id,raftconf)
 	// start listening on raft commit channel
-	go server.rn.ListenCommitChannel()
+	go server.ListenCommitChannel()
 	// start raft server to process events
 	go server.rn.processEvents()
 
@@ -274,7 +280,7 @@ func serverMain(id int, conf ClusterConfig) {
 		server.ClientChanMap[clientid]=clientCommitCh
 
 		// go and serve the client connection
-		go serve(clientid, clientCommitCh, tcp_conn, server.rn)
+		go server.serve(clientid, clientCommitCh, tcp_conn)
 	}
 }
 /*

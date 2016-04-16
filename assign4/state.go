@@ -70,5 +70,4 @@ func Random(min int) int {
 	//max := 2 * min
 	rand.Seed(time.Now().UnixNano())
 	return rand.Intn(min) + min
-	//	return min
 }

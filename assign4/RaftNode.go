@@ -185,8 +185,8 @@ func BringNodeUp(i int, clusterconf []NetConfig) RaftNode{
 //	clusterconf := makeNetConfig(conf)
 	ld := "myLogDir" + strconv.Itoa(i)
 	sd := "myStateDir" + strconv.Itoa(i)
-	eo := 2000 + 100*i
-	rc := RaftConfig{cluster: clusterconf, Id: i, LogDir: ld, StateDir: sd, ElectionTimeout: eo, HeartbeatTimeout: 500}
+	eo := 2000+100*i
+	rc := RaftConfig{cluster: clusterconf, Id: i, LogDir: ld, StateDir: sd, ElectionTimeout: eo, HeartbeatTimeout: 1000}
 	rs := New(rc)
 	return rs
 
@@ -201,11 +201,11 @@ func (rn *RaftNode) processEvents() {
 		select {
 		case ev = <-rn.EventCh:
 			actions = rn.sm.ProcessEvent(ev)
-			//		fmt.Printf("Node Id : %v Actions : %v\n", rn.rc.Id, actions)
+//			fmt.Printf("Node Id : %v Actions : %v\n", rn.rc.Id, actions)
 			rn.doActions(actions)
 			//	case ev = <-rn.TimeoutCh:
 		case <-rn.timer.C:
-			//			fmt.Printf("ID: %v Timeout event generated\n", rn.rc.Id)
+//			fmt.Printf("ID: %v Timeout event generated\n", rn.rc.Id)
 			actions = rn.sm.ProcessEvent(TimeoutEvent{})
 			rn.doActions(actions)
 		case env := <-rn.srvr.Inbox():
@@ -241,20 +241,7 @@ func (rn *RaftNode) doActions(actions []interface{}) {
 		ac = actions[i]
 		switch ac.(type) {
 		case Alarm:
-
 			res := ac.(Alarm)
-			//			fmt.Printf("Id : %v Alarm Received, Time : %v\n", rn.rc.Id, res.t)
-			//			rn.timeoutVal += 1
-			//			fmt.Printf("channel len : %v\n",len(rn.AlarmSetCh))
-			//	if(rn.TimeoutVal!=0){
-			/*			if(len(rn.AlarmSetCh)!=0){
-							go func(){
-								rn.AlarmResetCh <- true
-							}()
-						}
-			*/
-			//			fmt.Printf("channel len : %v\n",len(rn.AlarmCh))
-			//		fmt.Printf("Id : %v Time out val :%v\n", rn.rc.Id, rn.timeoutVal)
 			go rn.AlarmHandler(res)
 		case Send:
 			res := ac.(Send)

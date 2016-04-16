@@ -9,7 +9,7 @@ import (
 	"bufio"
 //	"github.com/cs733-iitb/log"
 	"io/ioutil"
-//	"runtime"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -161,6 +161,7 @@ func (cl *Client) close() {
 }
 
 func parseFirst(line string) (msg *Msg, err error) {
+//	fmt.Printf("%v",line)
 	fields := strings.Fields(line)
 	msg = &Msg{}
 
@@ -239,7 +240,7 @@ func startServers(){
 		InitializeState(sd)
 		go serverMain(i,conf)
 	}
-	time.Sleep(1 * time.Second)
+	time.Sleep(5 * time.Second)
 }
 
 func expect(t *testing.T, response *Msg, expected *Msg, errstr string, err error) {
@@ -266,37 +267,43 @@ func expect(t *testing.T, response *Msg, expected *Msg, errstr string, err error
 	}
 }
 
-func checkRedirect(t *testing.T, m *Msg, c *Client) (cl *Client, err error) {
-	if *m.Kind=='R'{
+func Redirect(t *testing.T, m *Msg, cl *Client) (c *Client){
 		redirectAddress := string(m.Contents)
-		c.close()
-		cl := mkClient(t, redirectAddress)
-		return cl,nil
-	}else{
-		return c,errors.New("NO REDIRECT")
-	}	
+		cl.close()
+		cl = mkClient(t, redirectAddress)
+		return cl
 }
 
 func TestRPCMain(t *testing.T) {
+	runtime.GOMAXPROCS(4)
 	startServers()
 }
 
 func TestRPC_BasicSequential(t *testing.T) {
-	cl := mkClient(t, "localhost:9001")
+	cl := mkClient(t, "localhost:9003")
 	defer cl.close()
+
 
 	// Read non-existent file cs733net
 	m, err := cl.read("cs733net")
 	expect(t, m, &Msg{Kind: 'F'}, "file not found", err)
 
-/*
+
 	// Read non-existent file cs733net
 	m, err = cl.delete("cs733net")
+	for err == nil && m.Kind=='R'{
+		cl=Redirect(t,m,cl)
+		m, err = cl.delete("cs733net")
+	}
 	expect(t, m, &Msg{Kind: 'F'}, "file not found", err)
-
 	// Write file cs733net
 	data := "Cloud fun"
 	m, err = cl.write("cs733net", data, 0)
+	for err == nil && m.Kind=='R'{
+		cl=Redirect(t,m,cl)
+		m, err = cl.delete("cs733net")
+
+	}
 	expect(t, m, &Msg{Kind: 'O'}, "write success", err)
 
 	// Expect to read it back
@@ -328,5 +335,5 @@ func TestRPC_BasicSequential(t *testing.T) {
 
 	// Expect to not find the file
 	m, err = cl.read("cs733net")
-	expect(t, m, &Msg{Kind: 'F'}, "file not found", err) */
+	expect(t, m, &Msg{Kind: 'F'}, "file not found", err) 
 }
