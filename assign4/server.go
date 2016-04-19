@@ -31,7 +31,7 @@ type Server struct{
 	fsconf []FSConfig
 	ClientChanMap map[int64]chan ClientResponse
 	rn RaftNode 
-	fs *Fs
+	fileMap *fs.FS
 }
 
 type MsgEntry struct {
@@ -134,7 +134,7 @@ func (server *Server) serve(clientid int64, clientCommitCh chan ClientResponse, 
 	var res ClientResponse
 	var response *fs.Msg
 	for {
-		fmt.Printf("Server id : %v\n/", server.rn.Id())
+	
 		msg, msgerr, fatalerr := fs.GetMsg(clientid, reader)
 //		msg.ClientId=clientid
 		if fatalerr != nil {
@@ -178,7 +178,7 @@ func (server *Server) serve(clientid int64, clientCommitCh chan ClientResponse, 
 	//		fmt.Printf("Response Message %v\n", string(response.Contents))
 			
 		}else if msg.Kind == 'r'{
-			response = fs.ProcessMsg(msg)
+			response = fs.ProcessMsg(server.fileMap, msg)
 		}
 				
 		if !reply(conn, response) {
@@ -203,7 +203,7 @@ func (server *Server) ListenCommitChannel(){
 			fmt.Printf("ListenCommitChannel: Error in decoding message 3")
 			assert(err==nil)
 		}
-		response := fs.ProcessMsg(&dmsg)
+		response := fs.ProcessMsg(server.fileMap, &dmsg)
 		server.ClientChanMap[dmsg.ClientId]<- ClientResponse{response,nil}
 	}
 
@@ -238,7 +238,7 @@ func (server *Server) ListenCommitChannel(){
 			assert(err==nil)
 			}
 			// process the message and send response to client
-			response := fs.ProcessMsg(&dmsg)
+			response := fs.ProcessMsg(server.fileMap, &dmsg)
 //			fmt.Printf("Response: %v", *response)
 			//server.ClientChanMap[dmsg.ClientId]<-ClientEntry{dmsg,nil}
 			server.ClientChanMap[dmsg.ClientId] <- ClientResponse{response,nil}
@@ -259,6 +259,9 @@ func serverMain(id int, conf ClusterConfig) {
 
 	// fsconf stores array of the id and addresses of all file servers
 	server.fsconf = makeFSNetConfig(conf)
+
+	// make a map for storing file info
+	server.fileMap= &fs.FS{Dir: make(map[string]*fs.FileInfo, 1000)}
 	
 	// find address of this server
 	address := server.getAddress(id)

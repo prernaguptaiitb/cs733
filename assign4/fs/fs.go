@@ -1,7 +1,7 @@
 package fs
 
 import (
-	"fmt"
+	_ "fmt"
 	"sync"
 	"time"
 )
@@ -16,10 +16,10 @@ type FileInfo struct {
 
 type FS struct {
 	sync.RWMutex
-	dir map[string]*FileInfo
+	Dir map[string]*FileInfo
 }
 
-var fs = &FS{dir: make(map[string]*FileInfo, 1000)}
+//var fs = &FS{dir: make(map[string]*FileInfo, 1000)}
 var gversion = 0 // global version
 
 func (fi *FileInfo) cancelTimer() {
@@ -29,16 +29,16 @@ func (fi *FileInfo) cancelTimer() {
 	}
 }
 
-func ProcessMsg(msg *Msg) *Msg {
+func  ProcessMsg(fs *FS, msg *Msg) *Msg {
 	switch msg.Kind {
 	case 'r':
-		return processRead(msg)
+		return processRead(fs,msg)
 	case 'w':
-		return processWrite(msg)
+		return processWrite(fs,msg)
 	case 'c':
-		return processCas(msg)
+		return processCas(fs,msg)
 	case 'd':
-		return processDelete(msg)
+		return processDelete(fs,msg)
 	}
 
 	// Default: Internal error. Shouldn't come here since
@@ -46,15 +46,13 @@ func ProcessMsg(msg *Msg) *Msg {
 	return &Msg{Kind: 'I'}
 }
 
-func processRead(msg *Msg) *Msg {
+func processRead(fs *FS, msg *Msg) *Msg {
 	fs.RLock()
 	defer fs.RUnlock()
-	if fi := fs.dir[msg.Filename]; fi != nil {
-//		fmt.Printf("File Timer: %v\n", fi.timer)
+	if fi := fs.Dir[msg.Filename]; fi != nil {
 		remainingTime := 0
 		if fi.timer != nil {
 			remainingTime := int(fi.absexptime.Sub(time.Now()))
-			fmt.Printf("remainingTime: %v\n", remainingTime)
 			if remainingTime < 0 {
 				remainingTime = 0
 			}
@@ -72,8 +70,8 @@ func processRead(msg *Msg) *Msg {
 	}
 }
 
-func internalWrite(msg *Msg) *Msg {
-	fi := fs.dir[msg.Filename]
+func internalWrite(fs *FS,msg *Msg) *Msg {
+	fi := fs.Dir[msg.Filename]
 	if fi != nil {
 		fi.cancelTimer()
 	} else {
@@ -89,11 +87,9 @@ func internalWrite(msg *Msg) *Msg {
 	if msg.Exptime > 0 {
 		dur := time.Duration(msg.Exptime) * time.Second
 		absexptime = time.Now().Add(dur)
-		fmt.Printf("current time : %v  Expiry time : %v \n", time.Now(), absexptime)
 		timerFunc := func(name string, ver int) func() {
 			return func() {
-//				fmt.Printf("%v file deleted\n", name)
-				processDelete(&Msg{Kind: 'D',
+				processDelete(fs,&Msg{Kind: 'D',
 					Filename: name,
 					Version:  ver})
 			}
@@ -102,40 +98,40 @@ func internalWrite(msg *Msg) *Msg {
 		fi.timer = time.AfterFunc(dur, timerFunc)
 	}
 	fi.absexptime = absexptime
-	fs.dir[msg.Filename] = fi
+	fs.Dir[msg.Filename] = fi
 
 	return ok(gversion)
 }
 
-func processWrite(msg *Msg) *Msg {
+func processWrite(fs *FS, msg *Msg) *Msg {
 	fs.Lock()
 	defer fs.Unlock()
-	return internalWrite(msg)
+	return internalWrite(fs,msg)
 }
 
-func processCas(msg *Msg) *Msg {
+func processCas(fs *FS, msg *Msg) *Msg {
 	fs.Lock()
 	defer fs.Unlock()
 
-	if fi := fs.dir[msg.Filename]; fi != nil {
+	if fi := fs.Dir[msg.Filename]; fi != nil {
 		if msg.Version != fi.version {
 			return &Msg{Kind: 'V', Version: fi.version}
 		}
 	}
-	return internalWrite(msg)
+	return internalWrite(fs,msg)
 }
 
-func processDelete(msg *Msg) *Msg {
+func processDelete(fs *FS, msg *Msg) *Msg {
 	fs.Lock()
 	defer fs.Unlock()
-	fi := fs.dir[msg.Filename]
+	fi := fs.Dir[msg.Filename]
 	if fi != nil {
 		if msg.Version > 0 && fi.version != msg.Version {
 			// non-zero msg.Version indicates a delete due to an expired timer
 			return nil // nothing to do
 		}
 		fi.cancelTimer()
-		delete(fs.dir, msg.Filename)
+		delete(fs.Dir, msg.Filename)
 		return ok(0)
 	} else {
 		return &Msg{Kind: 'F'} // file not found

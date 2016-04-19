@@ -375,34 +375,31 @@ func TestRPC_BasicTimer(t *testing.T) {
 	str := "Cloud fun"
 	m, err := cl.write("cs733", str, 2)
 	for err == nil && m.Kind=='R'{
-		fmt.Println("In redirect")
 		cl=Redirect(t,m,cl)
 		m, err = cl.write("cs733", str, 2)
 	}
 	expect(t, m, &Msg{Kind: 'O'}, "write success", err)
-	fmt.Printf("write success\n")
+	//fmt.Printf("write success\n")
 
 	// Expect to read it back immediately.
 	m, err = cl.read("cs733")
 	expect(t, m, &Msg{Kind: 'C', Contents: []byte(str)}, "read my cas", err)
-	fmt.Println("read my cas")
+//	fmt.Println("read my cas")
 	
 	time.Sleep( 3* time.Second)
-	fmt.Printf("current time : %v \n", time.Now())
 	// Expect to not find the file after expiry
 	m, err = cl.read("cs733")
 	expect(t, m, &Msg{Kind: 'F'}, "file not found", err)
-	fmt.Println("file not found")
+//	fmt.Println("file not found")
 
 	// Recreate the file with expiry time of 1 second
 	m, err = cl.write("cs733", str, 1)
 	for err == nil && m.Kind=='R'{
-		fmt.Println("In redirect")
 		cl=Redirect(t,m,cl)
 		m, err = cl.write("cs733", str, 1)
 	}
 	expect(t, m, &Msg{Kind: 'O'}, "file recreated", err)
-	fmt.Println("file recreated")
+//	fmt.Println("file recreated")
 
 	// Overwrite the file with expiry time of 4. This should be the new time.
 	m, err = cl.write("cs733", str, 3)
@@ -411,29 +408,29 @@ func TestRPC_BasicTimer(t *testing.T) {
 		m, err = cl.write("cs733", str, 3)
 	}
 	expect(t, m, &Msg{Kind: 'O'}, "file overwriten with exptime=4", err)
-	fmt.Println("file overwriten with exptime=4")
+//	fmt.Println("file overwriten with exptime=4")
 	// The last expiry time was 3 seconds. We should expect the file to still be around 2 seconds later
 	time.Sleep(2 * time.Second)
 
 	// Expect the file to not have expired.
 	m, err = cl.read("cs733")
 	expect(t, m, &Msg{Kind: 'C', Contents: []byte(str)}, "file to not expire until 4 sec", err)
-	fmt.Println("file to not expire until 4 sec")
+//	fmt.Println("file to not expire until 4 sec")
 
 	time.Sleep(3 * time.Second)
 	// 5 seconds since the last write. Expect the file to have expired
 	m, err = cl.read("cs733")
 	expect(t, m, &Msg{Kind: 'F'}, "file not found after 4 sec", err)
-	fmt.Println("file not found after 4 sec")
-	// Create the file with an expiry time of 1 sec. We're going to delete it
+//	fmt.Println("file not found after 4 sec")
+	// Create the file with an expiry time of 8 sec. We're going to delete it
 	// then immediately create it. The new file better not get deleted. 
-	m, err = cl.write("cs733", str, 5)
+	m, err = cl.write("cs733", str, 10)
 	for err == nil && m.Kind=='R'{
 		cl=Redirect(t,m,cl)
-		m, err = cl.write("cs733", str, 5)
+		m, err = cl.write("cs733", str, 10)
 	}
 	expect(t, m, &Msg{Kind: 'O'}, "file created for delete", err)
-	fmt.Println("file created for delete")
+//	fmt.Println("file created for delete")
 
 	m, err = cl.delete("cs733")
 	for err == nil && m.Kind=='R'{
@@ -441,7 +438,7 @@ func TestRPC_BasicTimer(t *testing.T) {
 		m, err = cl.delete("cs733")
 	}
 	expect(t, m, &Msg{Kind: 'O'}, "deleted ok", err)
-	fmt.Println("deleted ok")
+//	fmt.Println("deleted ok")
 
 	m, err = cl.write("cs733", str, 0) // No expiry
 	for err == nil && m.Kind=='R'{
@@ -449,12 +446,12 @@ func TestRPC_BasicTimer(t *testing.T) {
 		m, err = cl.write("cs733", str, 0)
 	}
 	expect(t, m, &Msg{Kind: 'O'}, "file recreated", err)
-	fmt.Println("file recreated")
+//	fmt.Println("file recreated")
 
 	time.Sleep(1100 * time.Millisecond) // A little more than 1 sec
 	m, err = cl.read("cs733")
 	expect(t, m, &Msg{Kind: 'C'}, "file should not be deleted", err)
-	fmt.Println("file should not be deleted")
+//	fmt.Println("file should not be deleted")
 
 }
 
