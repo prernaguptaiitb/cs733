@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 	"os"
+	"sync"
 )
 
 type Peer struct {
@@ -240,7 +241,7 @@ func startServers(){
 		InitializeState(sd)
 		go serverMain(i,conf)
 	}
-	time.Sleep(2 * time.Second)
+	time.Sleep(4 * time.Second)
 }
 
 func expect(t *testing.T, response *Msg, expected *Msg, errstr string, err error) {
@@ -365,7 +366,7 @@ func TestRPC_Binary(t *testing.T) {
 	m, err = cl.read("binfile")
 	expect(t, m, &Msg{Kind: 'C', Contents: []byte(data)}, "read my write", err)
 	fmt.Println("Pass : TestRPC_Binary")
-}*/
+}
 
 func TestRPC_BasicTimer(t *testing.T) {
 	cl := mkClient(t, "localhost:9003")
@@ -453,7 +454,71 @@ func TestRPC_BasicTimer(t *testing.T) {
 	expect(t, m, &Msg{Kind: 'C'}, "file should not be deleted", err)
 //	fmt.Println("file should not be deleted")
 
+	fmt.Println("Pass : TestRPC_BasicTimer")
+
 }
+*/
 
+func TestRPC_ConcurrentWrites(t *testing.T) {
+	nclients := 10
+	niters := 2
+	clients := make([]*Client, nclients)
+	addr := [5]string{"localhost:9001", "localhost:9002","localhost:9003","localhost:9004","localhost:9005"}
+	for i := 0; i < nclients; i++ {
+		cl := mkClient(t, addr[i%5])
+		if cl == nil {
+			t.Fatalf("Unable to create client #%d", i)
+		}
+		defer cl.close()
+		clients[i] = cl
+	}
+	fmt.Println("TCP Connection made")
+	errCh := make(chan error, nclients)
+	var sem sync.WaitGroup // Used as a semaphore to coordinate goroutines to begin concurrently
+	sem.Add(1)
+	ch := make(chan *Msg, nclients*niters) // channel for all replies
+	for i := 0; i < nclients; i++ {
+		go func(i int, cl *Client) {
+			sem.Wait()
+			for j := 0; j < niters; j++ {
+				
+				str := fmt.Sprintf("cl %d %d", i, j)
+				m, err := cl.write("concWrite", str, 0)
+				for err == nil && m.Kind=='R'{
+					fmt.Println("In Redirect")
+					cl=Redirect(t,m,cl)
+					clients[i]=cl
+					m, err = cl.write("concWrite", str, 0)
+				}
+				fmt.Printf("%v %v \n",i,j)
+				if err != nil {
+					errCh <- err
+					break
+				} else {
+					ch <- m
+				}
+			}
+		}(i, clients[i])
+	}
+	time.Sleep(50 * time.Second) // give goroutines a chance
+	sem.Done()                         // Go!
 
-
+	// There should be no errors
+	for i := 0; i < nclients*niters; i++ {
+		select {
+		case m := <-ch:
+			if m.Kind != 'O' {
+				t.Fatalf("Concurrent write failed with kind=%c", m.Kind)
+			}
+		case err := <- errCh:
+			t.Fatal(err)
+		}
+	}
+	m, _ := clients[0].read("concWrite")
+	fmt.Printf("%v\n", m)
+	// Ensure the contents are of the form "cl <i> 9"
+	// The last write of any client ends with " 9"
+	if !(m.Kind == 'C' && strings.HasSuffix(string(m.Contents), " 1")) {
+		t.Fatalf("Expected to be able to read after 1000 writes. Got msg = %v", m)
+	}
+}

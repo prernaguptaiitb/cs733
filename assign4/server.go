@@ -261,7 +261,7 @@ func serverMain(id int, conf ClusterConfig) {
 	server.fsconf = makeFSNetConfig(conf)
 
 	// make a map for storing file info
-	server.fileMap= &fs.FS{Dir: make(map[string]*fs.FileInfo, 1000)}
+	server.fileMap= &fs.FS{Dir: make(map[string]*fs.FileInfo, 10000)}
 	
 	// find address of this server
 	address := server.getAddress(id)

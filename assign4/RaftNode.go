@@ -61,8 +61,9 @@ func New(RaftNode_config RaftConfig) RaftNode {
 	rn.sm = InitializeStateMachine(RaftNode_config)
 	rn.EventCh = make(chan interface{}, 10000)
 	rn.CommitCh = make(chan CommitInfo, 10000)
-	rn.timer = time.NewTimer(time.Duration(RaftNode_config.ElectionTimeout) * time.Millisecond)
 	rand.Seed(time.Now().UnixNano())
+	rn.timer = time.NewTimer(time.Duration(Random(RaftNode_config.ElectionTimeout)) * time.Millisecond)
+	
 	rn.quit = make(chan bool)
 	rn.srvr, _ = cluster.New(RaftNode_config.Id, "Config.json") //make server object for communication
 	// register events
@@ -188,8 +189,8 @@ func BringNodeUp(i int, clusterconf []NetConfig) RaftNode{
 //	clusterconf := makeNetConfig(conf)
 	ld := "myLogDir" + strconv.Itoa(i)
 	sd := "myStateDir" + strconv.Itoa(i)
-	eo := 1000+100*i
-	rc := RaftConfig{cluster: clusterconf, Id: i, LogDir: ld, StateDir: sd, ElectionTimeout: eo, HeartbeatTimeout: 400}
+	eo := 2000+100*i
+	rc := RaftConfig{cluster: clusterconf, Id: i, LogDir: ld, StateDir: sd, ElectionTimeout: eo, HeartbeatTimeout: 600}
 	rs := New(rc)
 	return rs
 
