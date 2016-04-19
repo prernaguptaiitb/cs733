@@ -64,7 +64,9 @@ func (sm *StateMachine) AppendEntriesRequestFollower(msg AppendEntriesRequestEve
 		if l == 0 { // no entry in state machine log
 			l = -1
 		}
-		if (msg.PrevLogIndex != -1) && (l < msg.PrevLogIndex || sm.log[msg.PrevLogIndex].Term != msg.PrevLogTerm) {
+
+
+		if (msg.PrevLogIndex != -1) && (l <= msg.PrevLogIndex || sm.log[msg.PrevLogIndex].Term != msg.PrevLogTerm) {
 			action = append(action, Send{PeerId: msg.LeaderId, Event: AppendEntriesResponseEvent{FromId: sm.myconfig.myId, Term: sm.currentTerm, IsSuccessful: false, Index: sm.logCurrentIndex}})
 		} else {
 

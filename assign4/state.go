@@ -2,7 +2,6 @@ package main
 
 import (
 	"math/rand"
-	"time"
 )
 
 type Config struct {
@@ -68,6 +67,5 @@ func (sm *StateMachine) ProcessEvent(ev interface{}) []interface{} {
 
 func Random(min int) int {
 	//max := 2 * min
-	rand.Seed(time.Now().UnixNano())
 	return rand.Intn(min) + min
 }

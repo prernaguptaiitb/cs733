@@ -1,7 +1,7 @@
 package fs
 
 import (
-	_ "fmt"
+	"fmt"
 	"sync"
 	"time"
 )
@@ -50,9 +50,11 @@ func processRead(msg *Msg) *Msg {
 	fs.RLock()
 	defer fs.RUnlock()
 	if fi := fs.dir[msg.Filename]; fi != nil {
+//		fmt.Printf("File Timer: %v\n", fi.timer)
 		remainingTime := 0
 		if fi.timer != nil {
 			remainingTime := int(fi.absexptime.Sub(time.Now()))
+			fmt.Printf("remainingTime: %v\n", remainingTime)
 			if remainingTime < 0 {
 				remainingTime = 0
 			}
@@ -87,8 +89,10 @@ func internalWrite(msg *Msg) *Msg {
 	if msg.Exptime > 0 {
 		dur := time.Duration(msg.Exptime) * time.Second
 		absexptime = time.Now().Add(dur)
+		fmt.Printf("current time : %v  Expiry time : %v \n", time.Now(), absexptime)
 		timerFunc := func(name string, ver int) func() {
 			return func() {
+//				fmt.Printf("%v file deleted\n", name)
 				processDelete(&Msg{Kind: 'D',
 					Filename: name,
 					Version:  ver})

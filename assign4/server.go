@@ -22,20 +22,23 @@ type FSConfig struct {
 //	Port int
 }
 
+type ClientResponse struct{
+	Message *fs.Msg
+	Err error
+}
+
 type Server struct{
 	fsconf []FSConfig
-	ClientChanMap map[int64]chan error
+	ClientChanMap map[int64]chan ClientResponse
 	rn RaftNode 
+	fs *Fs
 }
 
 type MsgEntry struct {
 	Data fs.Msg
 }
-/*
-type ClientEntry struct{
-	Msg fs.Msg
-	Err error
-}*/
+
+
 
 func encode(data fs.Msg) ([]byte, error) {
 	var buf bytes.Buffer
@@ -125,10 +128,13 @@ func reply(conn *net.TCPConn, msg *fs.Msg) bool {
 	return err == nil
 }
 
-func (server *Server) serve(clientid int64, clientCommitCh chan error, conn *net.TCPConn) {
+func (server *Server) serve(clientid int64, clientCommitCh chan ClientResponse, conn *net.TCPConn) {
 	
 	reader := bufio.NewReader(conn)
+	var res ClientResponse
+	var response *fs.Msg
 	for {
+		fmt.Printf("Server id : %v\n/", server.rn.Id())
 		msg, msgerr, fatalerr := fs.GetMsg(clientid, reader)
 //		msg.ClientId=clientid
 		if fatalerr != nil {
@@ -158,18 +164,23 @@ func (server *Server) serve(clientid int64, clientCommitCh chan error, conn *net
 			// append the msg to the raft node log 
 			server.rn.Append(dbytes)
 			//wait for the msg to appear on the client commit channel
-			errval := <- clientCommitCh
+			res = <- clientCommitCh
+//			fmt.Printf("Response %v\n", res)
 //			fmt.Printf("Err val: %v , ServerId: %v\n", errval, rc.Id())
-			if errval != nil {
+			if res.Err != nil {
 				msgContent := server.getAddress(server.rn.LeaderId())
 //				fmt.Printf("Leader address : %v\n", rc.LeaderId())
 				reply(conn, &fs.Msg{Kind: 'R', Contents: []byte(msgContent)})
 				conn.Close()
 				break
 			}
-
+			response = res.Message
+	//		fmt.Printf("Response Message %v\n", string(response.Contents))
+			
+		}else if msg.Kind == 'r'{
+			response = fs.ProcessMsg(msg)
 		}
-		response := fs.ProcessMsg(msg)
+				
 		if !reply(conn, response) {
 			conn.Close()
 			break
@@ -192,8 +203,8 @@ func (server *Server) ListenCommitChannel(){
 			fmt.Printf("ListenCommitChannel: Error in decoding message 3")
 			assert(err==nil)
 		}
-
-		server.ClientChanMap[dmsg.ClientId]<- nil
+		response := fs.ProcessMsg(&dmsg)
+		server.ClientChanMap[dmsg.ClientId]<- ClientResponse{response,nil}
 	}
 
 	var prevLogIndexProcessed = -1
@@ -207,8 +218,7 @@ func (server *Server) ListenCommitChannel(){
 				fmt.Printf("ListenCommitChannel: Error in decoding message 1")
 				assert(err==nil)
 			}
-//			server.ClientChanMap[dmsg.ClientId]<-ClientEntry{dmsg,errors.New("ERR_RED")}
-			server.ClientChanMap[dmsg.ClientId]<- errors.New("ERR_REDIRECT")
+			server.ClientChanMap[dmsg.ClientId]<- ClientResponse{nil,errors.New("ERR_REDIRECT")}
 
 		}else{
 			//check if there are missing or duplicate commits 
@@ -216,6 +226,7 @@ func (server *Server) ListenCommitChannel(){
 				// already processed. So continue
 				continue
 			}
+			// if missing get them
 			for i := prevLogIndexProcessed + 1; i< commitval.Index; i++{
 				getMsg(i)
 			}
@@ -223,11 +234,14 @@ func (server *Server) ListenCommitChannel(){
 
 			dmsg,err :=decode(commitval.Data)
 			if err!=nil{
-			fmt.Printf("ListenCommitChannel: Error in decoding message 3")
+				fmt.Printf("ListenCommitChannel: Error in decoding message 3")
 			assert(err==nil)
-		}
-//			server.ClientChanMap[dmsg.ClientId]<-ClientEntry{dmsg,nil}
-			server.ClientChanMap[dmsg.ClientId] <- nil
+			}
+			// process the message and send response to client
+			response := fs.ProcessMsg(&dmsg)
+//			fmt.Printf("Response: %v", *response)
+			//server.ClientChanMap[dmsg.ClientId]<-ClientEntry{dmsg,nil}
+			server.ClientChanMap[dmsg.ClientId] <- ClientResponse{response,nil}
 			prevLogIndexProcessed=commitval.Index	
 		}	
 		
@@ -241,7 +255,7 @@ func serverMain(id int, conf ClusterConfig) {
 	var clientid int64 = 0  
 	
 	// make map for mapping client id with corresponding receiving clientcommitchannel
-	server.ClientChanMap = make(map[int64]chan error)
+	server.ClientChanMap = make(map[int64]chan ClientResponse)
 
 	// fsconf stores array of the id and addresses of all file servers
 	server.fsconf = makeFSNetConfig(conf)
@@ -249,12 +263,6 @@ func serverMain(id int, conf ClusterConfig) {
 	// find address of this server
 	address := server.getAddress(id)
 
-	/*var address string
-	for i:=0;i<len(server.fsconf);i++{
-		if id==server.fsconf[i].Id{
-			address=server.fsconf[i].Address
-		}
-	}*/
 	// start the file server 
 	tcpaddr, err := net.ResolveTCPAddr("tcp", address) 
 	check(err)
@@ -276,7 +284,7 @@ func serverMain(id int, conf ClusterConfig) {
 
 		// assign id and commit chan to client
 		clientid=(clientid+1)%MAX_CLIENTS
-		clientCommitCh := make(chan error)
+		clientCommitCh := make(chan ClientResponse)
 		server.ClientChanMap[clientid]=clientCommitCh
 
 		// go and serve the client connection
