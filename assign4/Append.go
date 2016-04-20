@@ -30,7 +30,7 @@ func (sm *StateMachine) AppendLeader(msg AppendEvent) []interface{} {
 	temp := LogEntry{sm.currentTerm, msg.Data}
 	sm.log = append(sm.log, temp)
 	action = append(action, LogStore{sm.logCurrentIndex, temp})
-	action = append(action, Alarm{t: Random(sm.heartbeatTO)})
+	action = append(action, Alarm{t: sm.heartbeatTO})
 	//send AppendEntriesRequest to all peers
 	for i := 0; i < len(sm.myconfig.peer); i++ {
 		if sm.nextIndex[i] == 0 {

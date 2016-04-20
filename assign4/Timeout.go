@@ -1,6 +1,6 @@
 package main
 
-//import "fmt"
+import "fmt"
 
 type TimeoutEvent struct {
 }
@@ -18,9 +18,9 @@ func (sm *StateMachine) Timeout(msg TimeoutEvent) []interface{} {
 	return action
 }
 func (sm *StateMachine) TimeoutLeader(msg TimeoutEvent) []interface{} {
-	//	fmt.Printf("Heartbeat Timeout ID: %v, Term : %v \n" , sm.myconfig.myId, sm.currentTerm)
+//	fmt.Printf("Heartbeat Timeout ID: %v, Term : %v \n" , sm.myconfig.myId, sm.currentTerm)
 	var action []interface{}
-	action = append(action, Alarm{t: Random(sm.heartbeatTO)})
+	action = append(action, Alarm{t: sm.heartbeatTO})
 	//heartbeat timeout
 	for i := 0; i < len(sm.myconfig.peer); i++ {
 		if sm.nextIndex[i] == 0 {
@@ -35,7 +35,7 @@ func (sm *StateMachine) TimeoutFollower(msg TimeoutEvent) []interface{} {
 	var action []interface{}
 	//election timeout
 	sm.currentTerm += 1
-//	fmt.Printf("Election Timeout ID : %v, Term : %v \n" , sm.myconfig.myId, sm.currentTerm)
+	fmt.Printf("Election Timeout ID : %v, Term : %v \n" , sm.myconfig.myId, sm.currentTerm)
 	sm.state = "CANDIDATE"
 	sm.votedFor = sm.myconfig.myId
 	action = append(action, StateStore{sm.state, sm.currentTerm, sm.votedFor})

@@ -241,7 +241,7 @@ func startServers(){
 		InitializeState(sd)
 		go serverMain(i,conf)
 	}
-	time.Sleep(4 * time.Second)
+	time.Sleep(2 * time.Second)
 }
 
 func expect(t *testing.T, response *Msg, expected *Msg, errstr string, err error) {
@@ -460,7 +460,7 @@ func TestRPC_BasicTimer(t *testing.T) {
 */
 
 func TestRPC_ConcurrentWrites(t *testing.T) {
-	nclients := 10
+	nclients := 5
 	niters := 2
 	clients := make([]*Client, nclients)
 	addr := [5]string{"localhost:9001", "localhost:9002","localhost:9003","localhost:9004","localhost:9005"}
@@ -480,8 +480,7 @@ func TestRPC_ConcurrentWrites(t *testing.T) {
 	for i := 0; i < nclients; i++ {
 		go func(i int, cl *Client) {
 			sem.Wait()
-			for j := 0; j < niters; j++ {
-				
+			for j := 0; j < niters; j++ {				
 				str := fmt.Sprintf("cl %d %d", i, j)
 				m, err := cl.write("concWrite", str, 0)
 				for err == nil && m.Kind=='R'{
@@ -500,7 +499,7 @@ func TestRPC_ConcurrentWrites(t *testing.T) {
 			}
 		}(i, clients[i])
 	}
-	time.Sleep(50 * time.Second) // give goroutines a chance
+	time.Sleep(10 * time.Second) // give goroutines a chance
 	sem.Done()                         // Go!
 
 	// There should be no errors
@@ -515,7 +514,7 @@ func TestRPC_ConcurrentWrites(t *testing.T) {
 		}
 	}
 	m, _ := clients[0].read("concWrite")
-	fmt.Printf("%v\n", m)
+
 	// Ensure the contents are of the form "cl <i> 9"
 	// The last write of any client ends with " 9"
 	if !(m.Kind == 'C' && strings.HasSuffix(string(m.Contents), " 1")) {

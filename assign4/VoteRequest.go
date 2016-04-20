@@ -35,11 +35,11 @@ func (sm *StateMachine) VoteRequestLeaderorCandidate(msg VoteRequestEvent) []int
 		} else {
 			LastlogTerm = sm.log[sm.logCurrentIndex].Term
 		}
-
+		action = append(action, Alarm{t: Random(sm.electionTO)})
 		if (LastlogTerm < msg.LastLogTerm) || ((LastlogTerm == msg.LastLogTerm) && (sm.logCurrentIndex <= msg.LastLogIndex)) {
 			//grant vote
 			sm.votedFor = msg.CandidateId
-
+			
 			action = append(action, Send{PeerId: msg.CandidateId, Event: VoteResponseEvent{Term: sm.currentTerm, IsVoteGranted: true}})
 
 		} else {
@@ -47,7 +47,7 @@ func (sm *StateMachine) VoteRequestLeaderorCandidate(msg VoteRequestEvent) []int
 			action = append(action, Send{PeerId: msg.CandidateId, Event: VoteResponseEvent{Term: sm.currentTerm, IsVoteGranted: false}})
 		}
 		action = append(action, StateStore{sm.state, sm.currentTerm, sm.votedFor})
-		action = append(action, Alarm{t: Random(sm.electionTO)})
+		
 	} else {
 		// reject vote
 		action = append(action, Send{PeerId: msg.CandidateId, Event: VoteResponseEvent{Term: sm.currentTerm, IsVoteGranted: false}})

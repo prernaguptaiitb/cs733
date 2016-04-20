@@ -9,6 +9,10 @@ import (
 
 func (rn *RaftNode) AlarmHandler(ac Alarm) {
 	rn.timer.Reset(time.Duration(ac.t) * time.Millisecond)
+/*	select {
+		case <- rn.timer.C: 
+		default: 
+	}*/
 }
 
 func (rn *RaftNode) SendHandler(ac Send) {

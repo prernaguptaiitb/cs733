@@ -59,8 +59,8 @@ func New(RaftNode_config RaftConfig) RaftNode {
 	var rn RaftNode
 	rn.rc = RaftNode_config
 	rn.sm = InitializeStateMachine(RaftNode_config)
-	rn.EventCh = make(chan interface{}, 10000)
-	rn.CommitCh = make(chan CommitInfo, 10000)
+	rn.EventCh = make(chan interface{}, 50000)
+	rn.CommitCh = make(chan CommitInfo, 50000)
 	rand.Seed(time.Now().UnixNano())
 	rn.timer = time.NewTimer(time.Duration(Random(RaftNode_config.ElectionTimeout)) * time.Millisecond)
 	
@@ -189,8 +189,8 @@ func BringNodeUp(i int, clusterconf []NetConfig) RaftNode{
 //	clusterconf := makeNetConfig(conf)
 	ld := "myLogDir" + strconv.Itoa(i)
 	sd := "myStateDir" + strconv.Itoa(i)
-	eo := 2000+100*i
-	rc := RaftConfig{cluster: clusterconf, Id: i, LogDir: ld, StateDir: sd, ElectionTimeout: eo, HeartbeatTimeout: 600}
+	eo := 4000 + 400*(i-1) 
+	rc := RaftConfig{cluster: clusterconf, Id: i, LogDir: ld, StateDir: sd, ElectionTimeout: eo, HeartbeatTimeout: 400}
 	rs := New(rc)
 	return rs
 
@@ -224,10 +224,16 @@ func (rn *RaftNode) processEvents() {
 				//				PrintVoteResEvent(ev.(VoteResponseEvent))
 			case AppendEntriesRequestEvent:
 				ev = env.Msg.(AppendEntriesRequestEvent)
+			/*	if rn.rc.Id == 3 {
+					PrintAppendEntriesReqEvent(ev.(AppendEntriesRequestEvent))
+				}*/
 				//				fmt.Printf("%v Id AppendEntriesRequestEvent  Received\n", rn.rc.Id)
 				//				PrintAppendEntriesReqEvent(ev.(AppendEntriesRequestEvent))
 			case AppendEntriesResponseEvent:
 				ev = env.Msg.(AppendEntriesResponseEvent)
+				if  rn.rc.Id == 1 {
+					PrintAppendEntriesResEvent(ev.(AppendEntriesResponseEvent))
+				}
 				//				fmt.Printf("%v Id AppendEntriesResponseEvent Received\n", rn.rc.Id)
 				//				PrintAppendEntriesResEvent(ev.(AppendEntriesResponseEvent))
 
@@ -246,7 +252,7 @@ func (rn *RaftNode) doActions(actions []interface{}) {
 		switch ac.(type) {
 		case Alarm:
 			res := ac.(Alarm)
-			go rn.AlarmHandler(res)
+			rn.AlarmHandler(res)
 		case Send:
 			res := ac.(Send)
 			rn.SendHandler(res)
@@ -285,5 +291,5 @@ func PrintAppendEntriesReqEvent(ev AppendEntriesRequestEvent) {
 }
 
 func PrintAppendEntriesResEvent(ev AppendEntriesResponseEvent) {
-	fmt.Printf("FromID : %v, Term : %v , IsSuccessful : %v\n ", ev.FromId, ev.Term, ev.IsSuccessful)
+	fmt.Printf("FromID : %v, Term : %v , Index : %v , IsSuccessful : %v\n ", ev.FromId, ev.Term, ev.Index, ev.IsSuccessful)
 }

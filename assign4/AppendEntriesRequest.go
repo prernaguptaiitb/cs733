@@ -43,6 +43,7 @@ func (sm *StateMachine) AppendEntriesRequestLeaderorCandidate(msg AppendEntriesR
 }
 
 func (sm *StateMachine) AppendEntriesRequestFollower(msg AppendEntriesRequestEvent) []interface{} {
+	
 	var action []interface{}
 	if sm.currentTerm > msg.Term {
 		//request from invalid leader - send leader’s current Term and failure

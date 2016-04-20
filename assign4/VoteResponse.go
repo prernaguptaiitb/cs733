@@ -60,7 +60,7 @@ func (sm *StateMachine) VoteResponseCandidate(msg VoteResponseEvent) []interface
 				action = append(action, Send{PeerId: sm.myconfig.peer[i], Event: AppendEntriesRequestEvent{Term: sm.currentTerm, LeaderId: sm.myconfig.myId, PrevLogIndex: sm.logCurrentIndex, PrevLogTerm: lastlogTerm, Data: nil, LeaderCommitIndex: sm.logCommitIndex}})
 			}
 			//reset heartbeat timer
-			action = append(action, Alarm{t: Random(sm.heartbeatTO)})
+			action = append(action, Alarm{t: sm.heartbeatTO})
 		}
 	} else {
 		if msg.Term > sm.currentTerm {

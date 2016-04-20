@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"sync"
 )
 
 var crlf = []byte{'\r', '\n'}
@@ -28,6 +29,7 @@ type ClientResponse struct{
 }
 
 type Server struct{
+	sync.RWMutex
 	fsconf []FSConfig
 	ClientChanMap map[int64]chan ClientResponse
 	rn RaftNode 
@@ -204,7 +206,9 @@ func (server *Server) ListenCommitChannel(){
 			assert(err==nil)
 		}
 		response := fs.ProcessMsg(server.fileMap, &dmsg)
+		server.Lock()
 		server.ClientChanMap[dmsg.ClientId]<- ClientResponse{response,nil}
+		server.Unlock()
 	}
 
 	var prevLogIndexProcessed = -1
@@ -218,7 +222,9 @@ func (server *Server) ListenCommitChannel(){
 				fmt.Printf("ListenCommitChannel: Error in decoding message 1")
 				assert(err==nil)
 			}
+			server.Lock()
 			server.ClientChanMap[dmsg.ClientId]<- ClientResponse{nil,errors.New("ERR_REDIRECT")}
+			server.Unlock()
 
 		}else{
 			//check if there are missing or duplicate commits 
@@ -241,7 +247,9 @@ func (server *Server) ListenCommitChannel(){
 			response := fs.ProcessMsg(server.fileMap, &dmsg)
 //			fmt.Printf("Response: %v", *response)
 			//server.ClientChanMap[dmsg.ClientId]<-ClientEntry{dmsg,nil}
+			server.Lock()
 			server.ClientChanMap[dmsg.ClientId] <- ClientResponse{response,nil}
+			server.Unlock()
 			prevLogIndexProcessed=commitval.Index	
 		}	
 		
@@ -253,7 +261,6 @@ func serverMain(id int, conf ClusterConfig) {
 	var server Server
 	gob.Register(MsgEntry{}) 
 	var clientid int64 = 0  
-	
 	// make map for mapping client id with corresponding receiving clientcommitchannel
 	server.ClientChanMap = make(map[int64]chan ClientResponse)
 
@@ -288,8 +295,9 @@ func serverMain(id int, conf ClusterConfig) {
 		// assign id and commit chan to client
 		clientid=(clientid+1)%MAX_CLIENTS
 		clientCommitCh := make(chan ClientResponse)
+		server.Lock()
 		server.ClientChanMap[clientid]=clientCommitCh
-
+		server.Unlock()
 		// go and serve the client connection
 		go server.serve(clientid, clientCommitCh, tcp_conn)
 	}
