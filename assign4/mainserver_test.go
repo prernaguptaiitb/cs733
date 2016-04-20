@@ -241,7 +241,7 @@ func startServers(){
 		InitializeState(sd)
 		go serverMain(i,conf)
 	}
-	time.Sleep(2 * time.Second)
+	time.Sleep(5 * time.Second)
 }
 
 func expect(t *testing.T, response *Msg, expected *Msg, errstr string, err error) {
@@ -472,7 +472,6 @@ func TestRPC_ConcurrentWrites(t *testing.T) {
 		defer cl.close()
 		clients[i] = cl
 	}
-	fmt.Println("TCP Connection made")
 	errCh := make(chan error, nclients)
 	var sem sync.WaitGroup // Used as a semaphore to coordinate goroutines to begin concurrently
 	sem.Add(1)
@@ -484,12 +483,12 @@ func TestRPC_ConcurrentWrites(t *testing.T) {
 				str := fmt.Sprintf("cl %d %d", i, j)
 				m, err := cl.write("concWrite", str, 0)
 				for err == nil && m.Kind=='R'{
-					fmt.Println("In Redirect")
+	//				fmt.Println("In Redirect")
 					cl=Redirect(t,m,cl)
 					clients[i]=cl
 					m, err = cl.write("concWrite", str, 0)
 				}
-				fmt.Printf("%v %v \n",i,j)
+				fmt.Printf("write cl %v %v successful \n",i,j)
 				if err != nil {
 					errCh <- err
 					break

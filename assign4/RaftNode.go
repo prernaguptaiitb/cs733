@@ -189,8 +189,8 @@ func BringNodeUp(i int, clusterconf []NetConfig) RaftNode{
 //	clusterconf := makeNetConfig(conf)
 	ld := "myLogDir" + strconv.Itoa(i)
 	sd := "myStateDir" + strconv.Itoa(i)
-	eo := 4000 
-	rc := RaftConfig{cluster: clusterconf, Id: i, LogDir: ld, StateDir: sd, ElectionTimeout: eo, HeartbeatTimeout: 400}
+	eo := 3000 
+	rc := RaftConfig{cluster: clusterconf, Id: i, LogDir: ld, StateDir: sd, ElectionTimeout: eo, HeartbeatTimeout: 300}
 	rs := New(rc)
 	return rs
 
@@ -231,9 +231,9 @@ func (rn *RaftNode) processEvents() {
 				//				PrintAppendEntriesReqEvent(ev.(AppendEntriesRequestEvent))
 			case AppendEntriesResponseEvent:
 				ev = env.Msg.(AppendEntriesResponseEvent)
-				if  rn.rc.Id == 1 {
+/*				if  rn.rc.Id == 1 {
 					PrintAppendEntriesResEvent(ev.(AppendEntriesResponseEvent))
-				}
+				}*/
 				//				fmt.Printf("%v Id AppendEntriesResponseEvent Received\n", rn.rc.Id)
 				//				PrintAppendEntriesResEvent(ev.(AppendEntriesResponseEvent))
 

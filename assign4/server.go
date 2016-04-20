@@ -74,16 +74,12 @@ func assert(val bool) {
 }
 */
 func (server *Server) getAddress(id int) string{
-//	fmt.Printf("id %v\n", id)
-//	fmt.Printf("struct %v\n", server.fsconf)
 	// find address of this server
 	var address string
 	for i:=0;i<len(server.fsconf);i++{
 		if id==server.fsconf[i].Id{
 			address=server.fsconf[i].Address
 			break
-
-//			fmt.Printf("adress: %v\n", address)
 		}
 	}
 	return address
@@ -168,8 +164,6 @@ func (server *Server) serve(clientid int64, clientCommitCh chan ClientResponse, 
 			server.rn.Append(dbytes)
 			//wait for the msg to appear on the client commit channel
 			res = <- clientCommitCh
-//			fmt.Printf("Response %v\n", res)
-//			fmt.Printf("Err val: %v , ServerId: %v\n", errval, rc.Id())
 			if res.Err != nil {
 				msgContent := server.getAddress(server.rn.LeaderId())
 //				fmt.Printf("Leader address : %v\n", rc.LeaderId())
