@@ -20,7 +20,7 @@ type FS struct {
 }
 
 //var fs = &FS{dir: make(map[string]*FileInfo, 1000)}
-var gversion = 0 // global version
+//var gversion = 0 // global version
 
 func (fi *FileInfo) cancelTimer() {
 	if fi.timer != nil {
@@ -29,14 +29,14 @@ func (fi *FileInfo) cancelTimer() {
 	}
 }
 
-func  ProcessMsg(fs *FS, msg *Msg) *Msg {
+func  ProcessMsg(fs *FS, gversion int,  msg *Msg) *Msg {
 	switch msg.Kind {
 	case 'r':
 		return processRead(fs,msg)
 	case 'w':
-		return processWrite(fs,msg)
+		return processWrite(fs,gversion, msg)
 	case 'c':
-		return processCas(fs,msg)
+		return processCas(fs,gversion,msg)
 	case 'd':
 		return processDelete(fs,msg)
 	}
@@ -70,7 +70,7 @@ func processRead(fs *FS, msg *Msg) *Msg {
 	}
 }
 
-func internalWrite(fs *FS,msg *Msg) *Msg {
+func internalWrite(fs *FS,gversion int, msg *Msg) *Msg {
 	fi := fs.Dir[msg.Filename]
 	if fi != nil {
 		fi.cancelTimer()
@@ -103,13 +103,13 @@ func internalWrite(fs *FS,msg *Msg) *Msg {
 	return ok(gversion)
 }
 
-func processWrite(fs *FS, msg *Msg) *Msg {
+func processWrite(fs *FS, gversion int, msg *Msg) *Msg {
 	fs.Lock()
 	defer fs.Unlock()
-	return internalWrite(fs,msg)
+	return internalWrite(fs, gversion, msg)
 }
 
-func processCas(fs *FS, msg *Msg) *Msg {
+func processCas(fs *FS, gversion int, msg *Msg) *Msg {
 	fs.Lock()
 	defer fs.Unlock()
 
@@ -118,7 +118,7 @@ func processCas(fs *FS, msg *Msg) *Msg {
 			return &Msg{Kind: 'V', Version: fi.version}
 		}
 	}
-	return internalWrite(fs,msg)
+	return internalWrite(fs, gversion, msg)
 }
 
 func processDelete(fs *FS, msg *Msg) *Msg {
