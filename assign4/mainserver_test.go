@@ -204,7 +204,11 @@ func parseFirst(line string) (msg *Msg, err error) {
 		msg.Kind = 'I'
 	case "ERR_REDIRECT":
 		msg.Kind = 'R'
-		msg.Contents=[]byte(fields[1])
+		if len(fields) < 2{
+			msg.Contents=[]byte("localhost:9005")
+		}else{
+			msg.Contents=[]byte(fields[1])
+		}	
 	default:
 		err = errors.New("Unknown response " + fields[0])
 	}
@@ -241,7 +245,7 @@ func startServers(){
 		InitializeState(sd)
 		go serverMain(i,conf)
 	}
-	time.Sleep(8 * time.Second)
+	time.Sleep(5 * time.Second)
 }
 
 func expect(t *testing.T, response *Msg, expected *Msg, errstr string, err error) {
@@ -286,7 +290,7 @@ func TestRPC_BasicSequential(t *testing.T) {
 	// Read non-existent file cs733net
 	m, err := cl.read("cs733net")
 	expect(t, m, &Msg{Kind: 'F'}, "file not found", err)
-	fmt.Println("read(cs733net) Pass")
+//	fmt.Println("read(cs733net) Pass")
 
 	// Read non-existent file cs733net
 	m, err = cl.delete("cs733net")
@@ -295,7 +299,7 @@ func TestRPC_BasicSequential(t *testing.T) {
 		m, err = cl.delete("cs733net")
 	}
 	expect(t, m, &Msg{Kind: 'F'}, "file not found", err)
-	fmt.Println("delete(cs733net) Pass")
+//	fmt.Println("delete(cs733net) Pass")
 
 	// Write file cs733net
 	data := "Cloud fun"
@@ -306,12 +310,12 @@ func TestRPC_BasicSequential(t *testing.T) {
 
 	}
 	expect(t, m, &Msg{Kind: 'O'}, "write success", err)
-	fmt.Println("write(cs733net, cloudfun, 0) Pass")
+//	fmt.Println("write(cs733net, cloudfun, 0) Pass")
 
 	// Expect to read it back
 	m, err = cl.read("cs733net")
 	expect(t, m, &Msg{Kind: 'C', Contents: []byte(data)}, "read my write", err)
-	fmt.Println("read(cs733net) Pass")
+//	fmt.Println("read(cs733net) Pass")
 
 	// CAS in new value
 	version1 := m.Version
@@ -319,44 +323,43 @@ func TestRPC_BasicSequential(t *testing.T) {
 	// Cas new value
 	m, err = cl.cas("cs733net", version1, data2, 0)
 	expect(t, m, &Msg{Kind: 'O'}, "cas success", err)
-	fmt.Println("cas(cs733net, version1, Cloud fun 2) Pass")
+//	fmt.Println("cas(cs733net, version1, Cloud fun 2) Pass")
 
 	// Expect to read it back
 	m, err = cl.read("cs733net")
 	expect(t, m, &Msg{Kind: 'C', Contents: []byte(data2)}, "read my cas", err)
-	fmt.Println("read(cs733net) Pass")
+//	fmt.Println("read(cs733net) Pass")
 
 	// Expect Cas to fail with old version
 	m, err = cl.cas("cs733net", version1, data, 0)
 	expect(t, m, &Msg{Kind: 'V'}, "cas version mismatch", err)
-	fmt.Println("cas(cs733net, version1) Pass")
-
+//	fmt.Println("cas(cs733net, version1) Pass")
 
 	// Expect a failed cas to not have succeeded. Read should return data2.
 	m, err = cl.read("cs733net")
 	expect(t, m, &Msg{Kind: 'C', Contents: []byte(data2)}, "failed cas to not have succeeded", err)
-	fmt.Println("read(cs733net) Pass")
+//	fmt.Println("read(cs733net) Pass")
 
 	// delete
 	m, err = cl.delete("cs733net")
 	expect(t, m, &Msg{Kind: 'O'}, "delete success", err)
-	fmt.Println("delete(cs733net) Pass")
+//	fmt.Println("delete(cs733net) Pass")
 
 	// Expect to not find the file
 	m, err = cl.read("cs733net")
 	expect(t, m, &Msg{Kind: 'F'}, "file not found", err) 
-	fmt.Println("read(cs733net) Pass")
+//	fmt.Println("read(cs733net) Pass")
 	cl.close()
-
+	fmt.Println("Pass : TestRPC_BasicSequential")
 }
 func TestRPC_Binary(t *testing.T) {
 	cl := mkClient(t, "localhost:9003")
 	defer cl.close()
-	fmt.Println("Testing : TestRPC_Binary")
 	// Write binary contents
 	data := "\x00\x01\r\n\x03" // some non-ascii, some crlf chars
 	m, err := cl.write("binfile", data, 0)
-	for err == nil && m.Kind=='R'{
+	
+	for err == nil && m.Kind=='R'{	
 		cl=Redirect(t,m,cl)
 		m, err = cl.write("binfile", data, 0)
 	}
@@ -380,7 +383,7 @@ func TestRPC_BasicTimer(t *testing.T) {
 		m, err = cl.write("cs733", str, 2)
 	}
 	expect(t, m, &Msg{Kind: 'O'}, "write success", err)
-	//fmt.Printf("write success\n")
+//	fmt.Printf("write success\n")
 
 	// Expect to read it back immediately.
 	m, err = cl.read("cs733")
@@ -460,7 +463,7 @@ func TestRPC_BasicTimer(t *testing.T) {
 */
 
 func TestRPC_ConcurrentWrites(t *testing.T) {
-	nclients := 100
+	nclients := 5
 	niters := 5
 	clients := make([]*Client, nclients)
 	addr := [5]string{"localhost:9001", "localhost:9002","localhost:9003","localhost:9004","localhost:9005"}
@@ -483,7 +486,7 @@ func TestRPC_ConcurrentWrites(t *testing.T) {
 				str := fmt.Sprintf("cl %d %d", i, j)
 				m, err := cl.write("concWrite", str, 0)
 				for err == nil && m.Kind=='R'{
-	//				fmt.Println("In Redirect")
+					fmt.Printf("Redirected to : %v\n", string(m.Contents))
 					cl=Redirect(t,m,cl)
 					clients[i]=cl
 					m, err = cl.write("concWrite", str, 0)
@@ -516,7 +519,90 @@ func TestRPC_ConcurrentWrites(t *testing.T) {
 
 	// Ensure the contents are of the form "cl <i> 9"
 	// The last write of any client ends with " 9"
-	if !(m.Kind == 'C' && strings.HasSuffix(string(m.Contents), " 4")) {
+	if !(m.Kind == 'C' && strings.HasSuffix(string(m.Contents), "4")) {
 		t.Fatalf("Expected to be able to read after 1000 writes. Got msg = %v", m)
 	}
+	fmt.Println("Pass : TestRPC_ConcurrentWrites")
 }
+
+/*
+// nclients cas to the same file. At the end the file should be any one clients' last write.
+// The only difference between this test and the ConcurrentWrite test above is that each
+// client loops around until each CAS succeeds. The number of concurrent clients has been
+// reduced to keep the testing time within limits.
+func TestRPC_ConcurrentCas(t *testing.T) {
+	nclients := 50
+	niters := 2
+	addr := [5]string{"localhost:9001", "localhost:9002","localhost:9003","localhost:9004","localhost:9005"}
+	clients := make([]*Client, nclients)
+	for i := 0; i < nclients; i++ {
+		cl := mkClient(t, addr[i%5])
+		if cl == nil {
+			t.Fatalf("Unable to create client #%d", i)
+		}
+		defer cl.close()
+		clients[i] = cl
+	}
+
+	var sem sync.WaitGroup // Used as a semaphore to coordinate goroutines to *begin* concurrently
+	sem.Add(1)
+
+	m, err := clients[0].write("concCas", "first", 0)
+	for err == nil && m.Kind=='R'{
+	//	fmt.Println("In Redirect")
+		clients[0]=Redirect(t,m,clients[0])
+		m, err = clients[0].write("concCas","first", 0)
+	}
+	ver := m.Version
+	if m.Kind != 'O' || ver == 0 {
+		t.Fatalf("Expected write to succeed and return version")
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(nclients)
+
+	errorCh := make(chan error, nclients)
+	
+	for i := 0; i < nclients; i++ {
+		go func(i int, ver int, cl *Client) {
+			sem.Wait()
+			defer wg.Done()
+			for j := 0; j < niters; j++ {
+				str := fmt.Sprintf("cl %d %d", i, j)
+				for {
+					m, err := cl.cas("concCas", ver, str, 0)
+					for err == nil && m.Kind=='R'{
+	//					fmt.Println("In Redirect")
+						cl=Redirect(t,m,cl)
+						clients[i]=cl
+						m, err = cl.cas("concCas", ver, str, 0)
+					}
+					fmt.Printf("cas cl %v %v successful \n",i,j)
+					if err != nil {
+						errorCh <- err
+						return
+					} else if m.Kind == 'O' {
+						break
+					} else if m.Kind != 'V' {
+						errorCh <- errors.New(fmt.Sprintf("Expected 'V' msg, got %c", m.Kind))
+						return
+					}
+					ver = m.Version // retry with latest version
+				}
+			}
+		}(i, ver, clients[i])
+	}
+
+	time.Sleep(100 * time.Millisecond) // give goroutines a chance
+	sem.Done()                         // Start goroutines
+	wg.Wait()                          // Wait for them to finish
+	select {
+	case e := <- errorCh:
+		t.Fatalf("Error received while doing cas: %v", e)
+	default: // no errors
+	}
+	m, _ = clients[0].read("concCas")
+	if !(m.Kind == 'C' && strings.HasSuffix(string(m.Contents), " 1")) {
+		t.Fatalf("Expected to be able to read after 1000 writes. Got msg.Kind = %d, msg.Contents=%s", m.Kind, m.Contents)
+	}
+}*/

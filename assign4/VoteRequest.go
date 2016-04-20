@@ -26,8 +26,13 @@ func (sm *StateMachine) VoteRequestLeaderorCandidate(msg VoteRequestEvent) []int
 	if sm.currentTerm < msg.Term {
 		// Update the Term and change to follower state
 		sm.currentTerm = msg.Term
+		if sm.state == "LEADER"{
+			actionsPending := sm.PendingRequest()
+			action = append(action, actionsPending...)
+		}
 		sm.state = "FOLLOWER"
 		sm.votedFor = 0
+		
 		//if candidate log is at least as up-to-date as this leaders log, then grant vote otherwise not
 		var LastlogTerm int
 		if sm.logCurrentIndex == -1 {

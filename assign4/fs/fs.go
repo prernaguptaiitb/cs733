@@ -29,7 +29,7 @@ func (fi *FileInfo) cancelTimer() {
 	}
 }
 
-func  ProcessMsg(fs *FS, gversion int,  msg *Msg) *Msg {
+func  ProcessMsg(fs *FS, gversion *int,  msg *Msg) *Msg {
 	switch msg.Kind {
 	case 'r':
 		return processRead(fs,msg)
@@ -70,7 +70,7 @@ func processRead(fs *FS, msg *Msg) *Msg {
 	}
 }
 
-func internalWrite(fs *FS,gversion int, msg *Msg) *Msg {
+func internalWrite(fs *FS,gversion *int, msg *Msg) *Msg {
 	fi := fs.Dir[msg.Filename]
 	if fi != nil {
 		fi.cancelTimer()
@@ -78,10 +78,10 @@ func internalWrite(fs *FS,gversion int, msg *Msg) *Msg {
 		fi = &FileInfo{}
 	}
 
-	gversion += 1
+	*gversion += 1
 	fi.filename = msg.Filename
 	fi.contents = msg.Contents
-	fi.version = gversion
+	fi.version = *gversion
 
 	var absexptime time.Time
 	if msg.Exptime > 0 {
@@ -93,23 +93,23 @@ func internalWrite(fs *FS,gversion int, msg *Msg) *Msg {
 					Filename: name,
 					Version:  ver})
 			}
-		}(msg.Filename, gversion)
+		}(msg.Filename, *gversion)
 
 		fi.timer = time.AfterFunc(dur, timerFunc)
 	}
 	fi.absexptime = absexptime
 	fs.Dir[msg.Filename] = fi
 
-	return ok(gversion)
+	return ok(*gversion)
 }
 
-func processWrite(fs *FS, gversion int, msg *Msg) *Msg {
+func processWrite(fs *FS, gversion *int, msg *Msg) *Msg {
 	fs.Lock()
 	defer fs.Unlock()
 	return internalWrite(fs, gversion, msg)
 }
 
-func processCas(fs *FS, gversion int, msg *Msg) *Msg {
+func processCas(fs *FS, gversion *int, msg *Msg) *Msg {
 	fs.Lock()
 	defer fs.Unlock()
 

@@ -35,9 +35,15 @@ func (sm *StateMachine) AppendEntriesRequestLeaderorCandidate(msg AppendEntriesR
 			sm.votedFor = 0
 		}
 		sm.currentTerm = msg.Term
+		if sm.state == "LEADER"{
+			actionsPending := sm.PendingRequest()
+			action = append(action, actionsPending...)	
+		}
 		sm.state = "FOLLOWER"
+
 		// call follower function
-		action = sm.AppendEntriesRequestFollower(msg)
+		action = append(action, sm.AppendEntriesRequestFollower(msg))
+		
 	}
 	return action
 }
@@ -64,11 +70,12 @@ func (sm *StateMachine) AppendEntriesRequestFollower(msg AppendEntriesRequestEve
 		if (msg.PrevLogIndex != -1) && (l <= msg.PrevLogIndex || sm.log[msg.PrevLogIndex].Term != msg.PrevLogTerm) {
 			action = append(action, Send{PeerId: msg.LeaderId, Event: AppendEntriesResponseEvent{FromId: sm.myconfig.myId, Term: sm.currentTerm, IsSuccessful: false, Index: sm.logCurrentIndex}})
 		} else {
-			//Delete all entries starting from PrevLogIndex+1 to logCurrentIndex and insert Data from PrevLogIndex+1
+			
 //			sm.log = sm.log[:msg.PrevLogIndex+1]
 //			sm.log = append(sm.log, msg.Data...)
+
+			// find the index till where the log matches
 			i := msg.PrevLogIndex + 1
-			//generate logstore action
 			for ; i < msg.PrevLogIndex+1+len(msg.Data); i++ {
 				if i<len(sm.log) && sm.log[i].Term == msg.Data[i-msg.PrevLogIndex-1].Term{
 						continue

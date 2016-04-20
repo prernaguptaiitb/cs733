@@ -175,7 +175,7 @@ func (server *Server) serve(clientid int64, clientCommitCh chan ClientResponse, 
 	//		fmt.Printf("Response Message %v\n", string(response.Contents))
 			
 		}else if msg.Kind == 'r'{
-			response = fs.ProcessMsg(server.fileMap, server.gversion, msg)
+			response = fs.ProcessMsg(server.fileMap, &(server.gversion), msg)
 		}
 				
 		if !reply(conn, response) {
@@ -200,9 +200,11 @@ func (server *Server) ListenCommitChannel(){
 			fmt.Printf("ListenCommitChannel: Error in decoding message 3")
 			assert(err==nil)
 		}
-		response := fs.ProcessMsg(server.fileMap, server.gversion ,&dmsg)
+		response := fs.ProcessMsg(server.fileMap, &(server.gversion) ,&dmsg)
 		server.Lock()
-		server.ClientChanMap[dmsg.ClientId]<- ClientResponse{response,nil}
+		if ch, ok := server.ClientChanMap[dmsg.ClientId]; ok {
+			ch <- ClientResponse{response,nil}
+		}	
 		server.Unlock()
 	}
 
@@ -218,7 +220,9 @@ func (server *Server) ListenCommitChannel(){
 				assert(err==nil)
 			}
 			server.Lock()
-			server.ClientChanMap[dmsg.ClientId]<- ClientResponse{nil,errors.New("ERR_REDIRECT")}
+			if ch, ok := server.ClientChanMap[dmsg.ClientId]; ok {
+				ch<- ClientResponse{nil,errors.New("ERR_REDIRECT")}
+			}	
 			server.Unlock()
 
 		}else{
@@ -239,11 +243,13 @@ func (server *Server) ListenCommitChannel(){
 			assert(err==nil)
 			}
 			// process the message and send response to client
-			response := fs.ProcessMsg(server.fileMap, server.gversion, &dmsg)
+			response := fs.ProcessMsg(server.fileMap, &(server.gversion), &dmsg)
 //			fmt.Printf("Response: %v", *response)
 			//server.ClientChanMap[dmsg.ClientId]<-ClientEntry{dmsg,nil}
 			server.Lock()
-			server.ClientChanMap[dmsg.ClientId] <- ClientResponse{response,nil}
+			if ch, ok := server.ClientChanMap[dmsg.ClientId]; ok {
+				ch <- ClientResponse{response,nil}
+			}
 			server.Unlock()
 			prevLogIndexProcessed=commitval.Index	
 		}	
@@ -255,7 +261,7 @@ func (server *Server) ListenCommitChannel(){
 func serverMain(id int, conf ClusterConfig) {
 	var server Server
 	gob.Register(MsgEntry{}) 
-	var clientid int64 = 0  
+	var clientid int64 = int64(id)  
 	// make map for mapping client id with corresponding receiving clientcommitchannel
 	server.ClientChanMap = make(map[int64]chan ClientResponse)
 
@@ -289,7 +295,7 @@ func serverMain(id int, conf ClusterConfig) {
 		check(err)
 
 		// assign id and commit chan to client
-		clientid=(clientid+1)%MAX_CLIENTS
+		clientid=(clientid+int64(5))%MAX_CLIENTS
 		clientCommitCh := make(chan ClientResponse)
 		server.Lock()
 		server.ClientChanMap[clientid]=clientCommitCh
