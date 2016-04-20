@@ -189,8 +189,8 @@ func BringNodeUp(i int, clusterconf []NetConfig) RaftNode{
 //	clusterconf := makeNetConfig(conf)
 	ld := "myLogDir" + strconv.Itoa(i)
 	sd := "myStateDir" + strconv.Itoa(i)
-	eo := 3000 
-	rc := RaftConfig{cluster: clusterconf, Id: i, LogDir: ld, StateDir: sd, ElectionTimeout: eo, HeartbeatTimeout: 300}
+	eo := 4000 
+	rc := RaftConfig{cluster: clusterconf, Id: i, LogDir: ld, StateDir: sd, ElectionTimeout: eo, HeartbeatTimeout: 600}
 	rs := New(rc)
 	return rs
 

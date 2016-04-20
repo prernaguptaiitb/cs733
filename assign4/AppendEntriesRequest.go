@@ -42,43 +42,47 @@ func (sm *StateMachine) AppendEntriesRequestLeaderorCandidate(msg AppendEntriesR
 	return action
 }
 
-func (sm *StateMachine) AppendEntriesRequestFollower(msg AppendEntriesRequestEvent) []interface{} {
-	
+func (sm *StateMachine) AppendEntriesRequestFollower(msg AppendEntriesRequestEvent) []interface{} {	
 	var action []interface{}
 	if sm.currentTerm > msg.Term {
 		//request from invalid leader - send leader’s current Term and failure
 		action = append(action, Send{PeerId: msg.LeaderId, Event: AppendEntriesResponseEvent{FromId: sm.myconfig.myId, Term: sm.currentTerm, IsSuccessful: false, Index: sm.logCurrentIndex}})
 
 	} else {
-
 		if sm.currentTerm < msg.Term {
 			sm.votedFor = 0
 		}
 		sm.currentTerm = msg.Term
 		//Reset Election Timer
-
 		action = append(action, Alarm{t: Random(sm.electionTO)})
 		action = append(action, StateStore{sm.state, sm.currentTerm, sm.votedFor})
 		//Reply false if log doesn’t contain an entry at PrevLogIndex whose Term matches PrevLogTerm
-
 		l := len(sm.log)
 		if l == 0 { // no entry in state machine log
 			l = -1
 		}
-
-
 		if (msg.PrevLogIndex != -1) && (l <= msg.PrevLogIndex || sm.log[msg.PrevLogIndex].Term != msg.PrevLogTerm) {
 			action = append(action, Send{PeerId: msg.LeaderId, Event: AppendEntriesResponseEvent{FromId: sm.myconfig.myId, Term: sm.currentTerm, IsSuccessful: false, Index: sm.logCurrentIndex}})
 		} else {
-
 			//Delete all entries starting from PrevLogIndex+1 to logCurrentIndex and insert Data from PrevLogIndex+1
-			sm.log = sm.log[:msg.PrevLogIndex+1]
-			sm.log = append(sm.log, msg.Data...)
+//			sm.log = sm.log[:msg.PrevLogIndex+1]
+//			sm.log = append(sm.log, msg.Data...)
+			i := msg.PrevLogIndex + 1
 			//generate logstore action
-			for i := msg.PrevLogIndex + 1; i < msg.PrevLogIndex+1+len(msg.Data); i++ {
-				//			fmt.Printf("ID: %v , LogStore--> Index:%v, LogData : %v\n",sm.myconfig.myId,i, msg.Data[i-msg.PrevLogIndex-1])
-				action = append(action, LogStore{Index: i, LogData: msg.Data[i-msg.PrevLogIndex-1]})
+			for ; i < msg.PrevLogIndex+1+len(msg.Data); i++ {
+				if i<len(sm.log) && sm.log[i].Term == msg.Data[i-msg.PrevLogIndex-1].Term{
+						continue
+				}else{
+					break
+				}
 			}
+			sm.log = sm.log[:i]
+			for j:=i; j< msg.PrevLogIndex+1+len(msg.Data); j++ {
+				sm.log = append(sm.log, msg.Data[j-msg.PrevLogIndex-1])
+				action = append(action, LogStore{Index: j, LogData: msg.Data[j-msg.PrevLogIndex-1]})
+			}
+
+				//			fmt.Printf("ID: %v , LogStore--> Index:%v, LogData : %v\n",sm.myconfig.myId,i, msg.Data[i-msg.PrevLogIndex-1])
 			//Update logCurrentIndex
 			sm.logCurrentIndex = len(sm.log) - 1
 			action = append(action, Send{PeerId: msg.LeaderId, Event: AppendEntriesResponseEvent{FromId: sm.myconfig.myId, Term: sm.currentTerm, IsSuccessful: true, Index: sm.logCurrentIndex}})
@@ -89,10 +93,11 @@ func (sm *StateMachine) AppendEntriesRequestFollower(msg AppendEntriesRequestEve
 				}
 				sm.logCommitIndex = Min(msg.LeaderCommitIndex, sm.logCurrentIndex)
 			}
+		
 		}
-
 	}
 	return action
+
 }
 
 func Min(a, b int) int {

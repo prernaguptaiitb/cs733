@@ -25,12 +25,12 @@ func (sm *StateMachine) Append(msg AppendEvent) []interface{} {
 func (sm *StateMachine) AppendLeader(msg AppendEvent) []interface{} {
 //	fmt.Printf( " Id  : %v Append Message Recieved :  %v\n ", sm.myconfig.myId , string(msg.Data))
 	var action []interface{}
-	// append Data to leaders local log
+	// append Data to leaders local log and do not send to followers. Let the append go to the followers through heartbeat
 	sm.logCurrentIndex++
 	temp := LogEntry{sm.currentTerm, msg.Data}
 	sm.log = append(sm.log, temp)
 	action = append(action, LogStore{sm.logCurrentIndex, temp})
-	action = append(action, Alarm{t: sm.heartbeatTO})
+	/*action = append(action, Alarm{t: sm.heartbeatTO})
 	//send AppendEntriesRequest to all peers
 	for i := 0; i < len(sm.myconfig.peer); i++ {
 		if sm.nextIndex[i] == 0 {
@@ -39,7 +39,7 @@ func (sm *StateMachine) AppendLeader(msg AppendEvent) []interface{} {
 		} else {
 			action = append(action, Send{sm.myconfig.peer[i], AppendEntriesRequestEvent{sm.currentTerm, sm.myconfig.myId, sm.nextIndex[i] - 1, sm.log[sm.nextIndex[i]-1].Term, sm.log[sm.nextIndex[i]:], sm.logCommitIndex}})
 		}
-	}
+	}*/
 	return action
 }
 

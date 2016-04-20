@@ -241,7 +241,7 @@ func startServers(){
 		InitializeState(sd)
 		go serverMain(i,conf)
 	}
-	time.Sleep(5 * time.Second)
+	time.Sleep(8 * time.Second)
 }
 
 func expect(t *testing.T, response *Msg, expected *Msg, errstr string, err error) {
@@ -460,8 +460,8 @@ func TestRPC_BasicTimer(t *testing.T) {
 */
 
 func TestRPC_ConcurrentWrites(t *testing.T) {
-	nclients := 5
-	niters := 2
+	nclients := 100
+	niters := 5
 	clients := make([]*Client, nclients)
 	addr := [5]string{"localhost:9001", "localhost:9002","localhost:9003","localhost:9004","localhost:9005"}
 	for i := 0; i < nclients; i++ {
@@ -516,7 +516,7 @@ func TestRPC_ConcurrentWrites(t *testing.T) {
 
 	// Ensure the contents are of the form "cl <i> 9"
 	// The last write of any client ends with " 9"
-	if !(m.Kind == 'C' && strings.HasSuffix(string(m.Contents), " 1")) {
+	if !(m.Kind == 'C' && strings.HasSuffix(string(m.Contents), " 4")) {
 		t.Fatalf("Expected to be able to read after 1000 writes. Got msg = %v", m)
 	}
 }
