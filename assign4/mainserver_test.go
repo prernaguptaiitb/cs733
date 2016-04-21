@@ -460,7 +460,7 @@ func TestRPC_BasicTimer(t *testing.T) {
 	fmt.Println("Pass : TestRPC_BasicTimer")
 
 }
-*/
+
 
 func TestRPC_ConcurrentWrites(t *testing.T) {
 	nclients := 5
@@ -524,14 +524,14 @@ func TestRPC_ConcurrentWrites(t *testing.T) {
 	}
 	fmt.Println("Pass : TestRPC_ConcurrentWrites")
 }
+*/
 
-/*
 // nclients cas to the same file. At the end the file should be any one clients' last write.
 // The only difference between this test and the ConcurrentWrite test above is that each
 // client loops around until each CAS succeeds. The number of concurrent clients has been
 // reduced to keep the testing time within limits.
 func TestRPC_ConcurrentCas(t *testing.T) {
-	nclients := 50
+	nclients := 15
 	niters := 2
 	addr := [5]string{"localhost:9001", "localhost:9002","localhost:9003","localhost:9004","localhost:9005"}
 	clients := make([]*Client, nclients)
@@ -577,16 +577,18 @@ func TestRPC_ConcurrentCas(t *testing.T) {
 						clients[i]=cl
 						m, err = cl.cas("concCas", ver, str, 0)
 					}
-					fmt.Printf("cas cl %v %v successful \n",i,j)
+					
 					if err != nil {
 						errorCh <- err
 						return
 					} else if m.Kind == 'O' {
+						fmt.Printf("cas cl %v %v successful \n",i,j)
 						break
 					} else if m.Kind != 'V' {
 						errorCh <- errors.New(fmt.Sprintf("Expected 'V' msg, got %c", m.Kind))
 						return
 					}
+			//		fmt.Printf("Retrying\n")
 					ver = m.Version // retry with latest version
 				}
 			}
@@ -605,4 +607,4 @@ func TestRPC_ConcurrentCas(t *testing.T) {
 	if !(m.Kind == 'C' && strings.HasSuffix(string(m.Contents), " 1")) {
 		t.Fatalf("Expected to be able to read after 1000 writes. Got msg.Kind = %d, msg.Contents=%s", m.Kind, m.Contents)
 	}
-}*/
+}
