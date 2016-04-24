@@ -54,7 +54,6 @@ type SMState struct {
 }
 
 func New(RaftNode_config RaftConfig) RaftNode {
-
 	//make raftnode object and set it
 	var rn RaftNode
 	rn.rc = RaftNode_config
@@ -76,6 +75,7 @@ func New(RaftNode_config RaftConfig) RaftNode {
 }
 
 func InitializeStateMachine(RaftNode_config RaftConfig) StateMachine {
+
 	var smobj StateMachine
 	// initialize config structure of state machine
 	smobj.myconfig.myId = RaftNode_config.Id
@@ -175,9 +175,9 @@ func (rn *RaftNode) Shutdown() {
 }
 
 func InitializeState(sd string) {
+	
 	stateFile := sd + "/" + "mystate"
 	st, err := log.Open(stateFile)
-	//st.SetCacheSize(50)
 	assert(err == nil)
 	st.RegisterSampleEntry(SMState{})
 	defer st.Close()
@@ -185,8 +185,8 @@ func InitializeState(sd string) {
 	assert(err == nil)
 }
 
-func BringNodeUp(i int, clusterconf []NetConfig) RaftNode{
-//	clusterconf := makeNetConfig(conf)
+func RestartNode(i int, clusterconf []NetConfig) RaftNode{
+
 	ld := "myLogDir" + strconv.Itoa(i)
 	sd := "myStateDir" + strconv.Itoa(i)
 	eo := 4000 
@@ -194,9 +194,16 @@ func BringNodeUp(i int, clusterconf []NetConfig) RaftNode{
 	rs := New(rc)
 	return rs
 
-//	rafts[i-1] = New(rc)
-//	go rafts[i-1].processEvents()
 }
+
+func  BringNodeUp(i int, clusterconf []NetConfig) RaftNode {
+	sd := "myStateDir" + strconv.Itoa(i)
+	InitializeState(sd)
+	rs := RestartNode(i,clusterconf)
+	return rs
+}
+
+
 
 func (rn *RaftNode) processEvents() {
 	var actions []interface{}
@@ -273,6 +280,7 @@ func assert(val bool) {
 	if !val {
 		panic("Assertion Failed")
 	}
+
 }
 func rmlog(lgFile string) {
 	os.RemoveAll(lgFile)

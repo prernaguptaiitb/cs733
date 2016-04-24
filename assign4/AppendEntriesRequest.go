@@ -35,10 +35,10 @@ func (sm *StateMachine) AppendEntriesRequestLeaderorCandidate(msg AppendEntriesR
 			sm.votedFor = 0
 		}
 		sm.currentTerm = msg.Term
-		if sm.state == "LEADER"{
+	/*	if sm.state == "LEADER"{
 			actionsPending := sm.PendingRequest()
 			action = append(action, actionsPending...)	
-		}
+		}*/
 		sm.state = "FOLLOWER"
 
 		// call follower function
