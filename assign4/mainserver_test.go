@@ -84,10 +84,10 @@ func startServers(){
 // ############################################## Basic Test #####################################################################
 
 //This testcase test that all servers should start functioning properly. Clients try to connect to each of the servers for update 
-//operations. But ultimately they should be redirected to the leader. After all the updates, clients try to read the updated files from the
-//follower. This should be successful. Finally, all the servers are killed.
+//operations. But ultimately they should be redirected to the leader. After all the updates, a client try to read the updated files
+// from one of the follower. This should be successful. Finally, all the servers are killed. 
 
-/*
+
 
 func TestBasic(t *testing.T) {
 
@@ -116,7 +116,6 @@ func TestBasic(t *testing.T) {
 		m, err := cl.write(filename, str, 0)
 		for err == nil && m.Kind=='R'{
 			leader = string(m.Contents)
-			fmt.Printf("Redirected to : %v\n", string(m.Contents))
 			cl=Redirect(t,m,cl)
 			clients[i]=cl
 			m, err = cl.write(filename, str, 0)
@@ -152,7 +151,7 @@ func TestBasic(t *testing.T) {
 //########################################### Assignment 1 Basic Test Cases #########################################################//
 
 
- 
+
 func TestRPC_BasicSequential(t *testing.T) {
 	StartAllServerProcess()
 
@@ -165,7 +164,6 @@ func TestRPC_BasicSequential(t *testing.T) {
 	// Read non-existent file cs733net
 	m, err = cl.delete("cs733net")
 	for err == nil && m.Kind=='R'{
-		fmt.Printf("Redirected to : %v\n", string(m.Contents))
 		cl=Redirect(t,m,cl)
 		m, err = cl.delete("cs733net")
 	}
@@ -175,7 +173,6 @@ func TestRPC_BasicSequential(t *testing.T) {
 	data := "Cloud fun"
 	m, err = cl.write("cs733net", data, 0)
 	for err == nil && m.Kind=='R'{
-		fmt.Printf("Redirected to : %v\n", string(m.Contents))
 		cl=Redirect(t,m,cl)
 		m, err = cl.delete("cs733net")
 
@@ -192,7 +189,6 @@ func TestRPC_BasicSequential(t *testing.T) {
 	// Cas new value
 	m, err = cl.cas("cs733net", version1, data2, 0)
 	for err == nil && m.Kind=='R'{
-		fmt.Printf("Redirected to : %v\n", string(m.Contents))
 		cl=Redirect(t,m,cl)
 		m, err =cl.cas("cs733net", version1, data2, 0)
 	}
@@ -207,7 +203,6 @@ func TestRPC_BasicSequential(t *testing.T) {
 	// Expect Cas to fail with old version
 	m, err = cl.cas("cs733net", version1, data, 0)
 	for err == nil && m.Kind=='R'{
-		fmt.Printf("Redirected to : %v\n", string(m.Contents))
 		cl=Redirect(t,m,cl)
 		m, err =cl.cas("cs733net", version1, data, 0)
 	}
@@ -222,7 +217,6 @@ func TestRPC_BasicSequential(t *testing.T) {
 	// delete
 	m, err = cl.delete("cs733net")
 	for err == nil && m.Kind=='R'{
-		fmt.Printf("Redirected to : %v\n", string(m.Contents))
 		cl=Redirect(t,m,cl)
 		m, err =cl.delete("cs733net")
 	}
@@ -350,7 +344,7 @@ func TestRPC_BasicTimer(t *testing.T) {
 	expect(t, m, &Msg{Kind: 'C'}, "file should not be deleted", err)
 
 	KillAllServerProcess()
-	fmt.Println("Pass : TestRPC_BasicTimer")
+	fmt.Println("TestRPC_BasicTimer : Pass")
 }
 
 
@@ -383,7 +377,6 @@ func TestRPC_ConcurrentWrites(t *testing.T) {
 				str := fmt.Sprintf("cl %d %d", i, j)
 				m, err := cl.write("concWrite", str, 0)
 				for err == nil && m.Kind=='R'{
-					fmt.Printf("Redirected to : %v\n", string(m.Contents))
 					cl=Redirect(t,m,cl)
 					clients[i]=cl
 					m, err = cl.write("concWrite", str, 0)
@@ -398,7 +391,7 @@ func TestRPC_ConcurrentWrites(t *testing.T) {
 			}
 		}(i, clients[i])
 	}
-	time.Sleep(500 * time.Millisecond) // give goroutines a chance
+	time.Sleep(100 * time.Millisecond) // give goroutines a chance
 	sem.Done()                         // Go!
 
 	// There should be no errors
@@ -449,7 +442,6 @@ func TestRPC_ConcurrentCas(t *testing.T) {
 
 	m, err := clients[0].write("concCas", "first", 0)
 	for err == nil && m.Kind=='R'{
-	//	fmt.Println("In Redirect")
 		clients[0]=Redirect(t,m,clients[0])
 		m, err = clients[0].write("concCas","first", 0)
 	}
@@ -507,10 +499,9 @@ func TestRPC_ConcurrentCas(t *testing.T) {
 	}
 	
 	KillAllServerProcess()
-	fmt.Println("Pass : TestRPC_ConcurrentCas")
+	fmt.Println("TestRPC_ConcurrentCas : Pass")
 }
 
-*/
 // ################################################## Node Failure Test #####################################
 
 
@@ -546,7 +537,6 @@ func Test_FollowerFailure(t *testing.T) {
 			m, err := cl.write("concWrite", str, 0)
 			for err == nil && m.Kind=='R'{
 					leader = string(m.Contents)
-					fmt.Printf("Redirected to : %v\n", string(m.Contents))
 					cl=Redirect(t,m,cl)
 					clients[i]=cl
 					m, err = cl.write("concWrite", str, 0)
@@ -580,8 +570,6 @@ func Test_FollowerFailure(t *testing.T) {
 	
 	m, err := cl.write("cloudSuspense", "zoo", 0)
 	for err == nil && m.Kind=='R'{
-
-		fmt.Printf("Redirected to : %v\n", string(m.Contents))
 		cl=Redirect(t,m,cl)
 		m, err = cl.write("cloudSuspense", "zoo", 0)
 	}
@@ -589,7 +577,6 @@ func Test_FollowerFailure(t *testing.T) {
 	data := "Cloud fun"
 	m, err = cl.write("cs733net", data, 0)
 	for err == nil && m.Kind=='R'{
-		fmt.Printf("Redirected to : %v\n", string(m.Contents))
 		cl=Redirect(t,m,cl)
 		m, err = cl.write("cs733net", data, 0)
 
@@ -597,7 +584,6 @@ func Test_FollowerFailure(t *testing.T) {
 
 	m, err = cl.delete("concWrite")
 	for err == nil && m.Kind=='R'{
-		fmt.Printf("Redirected to : %v\n", string(m.Contents))
 		cl=Redirect(t,m,cl)
 		m, err = cl.delete("concWrite")
 	}
@@ -606,7 +592,7 @@ func Test_FollowerFailure(t *testing.T) {
 
 	// Bring back the follower
 	StartServer(foll, "true")
-	time.Sleep(6* time.Second) // wait for some time for the entries to be replicated and then read the three files
+	time.Sleep(4* time.Second) // wait for some time for the entries to be replicated and then read the three files
 
 	follower := "localhost:900" + strconv.Itoa(foll)
 	// Make a client connection to the follower and start reading
@@ -642,7 +628,6 @@ func Test_LeaderFailure(t *testing.T) {
 	m, err := cl.write("cloudSuspense", "zoo", 0)
 	for err == nil && m.Kind=='R'{
 		leader = string(m.Contents)
-		fmt.Printf("Redirected to : %v\n", string(m.Contents))
 		cl=Redirect(t,m,cl)
 		m, err = cl.write("cloudSuspense", "zoo", 0)
 	}
@@ -652,7 +637,6 @@ func Test_LeaderFailure(t *testing.T) {
 	data := "Cloud fun"
 	m, err = cl.write("cs733net", data, 0)
 	for err == nil && m.Kind=='R'{
-		fmt.Printf("Redirected to : %v\n", string(m.Contents))
 		cl=Redirect(t,m,cl)
 		m, err = cl.write("cs733net", data, 0)
 
@@ -676,7 +660,6 @@ func Test_LeaderFailure(t *testing.T) {
 	// Now issue another command
 	m, err = cl.delete("cs733net")
 	for err == nil && m.Kind=='R'{
-		fmt.Printf("Redirected to : %v\n", string(m.Contents))
 		cl=Redirect(t,m,cl)
 		m, err = cl.delete("cs733net")
 	}
@@ -684,7 +667,6 @@ func Test_LeaderFailure(t *testing.T) {
 
 	m, err = cl.write("DSystems", "zoo", 0)
 	for err == nil && m.Kind=='R'{
-		fmt.Printf("Redirected to : %v\n", string(m.Contents))
 		cl=Redirect(t,m,cl)
 		m, err = cl.write("Dsystems", "zoo", 0)
 	}
@@ -692,10 +674,10 @@ func Test_LeaderFailure(t *testing.T) {
 
 	// Bring back the previous leader
 	StartServer(l, "true")
-	time.Sleep(30*time.Second)
+	time.Sleep(10*time.Second)
 	// make client connection with the previous leader and read all the above changes
 	cl = mkClient(t, leader)
-	fmt.Printf("cl : %v \n",cl)
+
 	m, err = cl.read("cs733net")
 	expect(t, m, &Msg{Kind: 'F'}, "file not found", err)
 
@@ -728,7 +710,6 @@ func Test_LeaderMultipleFailure(t *testing.T) {
 	m, err := cl.write("cloudSuspense", "zoo", 0)
 	for err == nil && m.Kind=='R'{
 		leader = string(m.Contents)
-		fmt.Printf("Redirected to : %v\n", string(m.Contents))
 		cl=Redirect(t,m,cl)
 		m, err = cl.write("cloudSuspense", "zoo", 0)
 	}
@@ -739,7 +720,6 @@ func Test_LeaderMultipleFailure(t *testing.T) {
 	leaderId := leader[len(leader)-1:]
 	l,_ :=strconv.Atoi(leaderId)
 	KillServer(l)
-	fmt.Println("Leader Killed")
 	previousLeader:=l
 
 	// wait for few seconds for one of the node to timeout and a new leader to get elected
@@ -757,18 +737,17 @@ func Test_LeaderMultipleFailure(t *testing.T) {
 	m, err = cl.write("DSystems", "zoo", 0)
 	for err == nil && m.Kind=='R'{
 		leader = string(m.Contents)
-		fmt.Printf("Redirected to : %v\n", string(m.Contents))
 		cl=Redirect(t,m,cl)
 		m, err = cl.write("Dsystems", "zoo", 0)
 	}
 	expect(t, m, &Msg{Kind: 'O'}, "Test_LeaderMultipleFailure : DSystemsSuccess", err)
-	time.Sleep(1*time.Second)
+	time.Sleep(2*time.Second)
 	
 	// Now kill the leader again 
 	leaderId = leader[len(leader)-1:]
 	l,_ =strconv.Atoi(leaderId)
 	KillServer(l)
-	fmt.Println("Leader Killed")
+	
 	// wait for few seconds for one of the node to timeout and a new leader to get elected. 
 	time.Sleep(8*time.Second)
 	
@@ -787,7 +766,6 @@ func Test_LeaderMultipleFailure(t *testing.T) {
 	m, err = cl.delete("cloudSuspense")
 	for err == nil && m.Kind=='R'{
 		leader=string(m.Contents)
-		fmt.Printf("Redirected to : %v\n", string(m.Contents))
 		cl=Redirect(t,m,cl)
 		m, err = cl.delete("cloudSuspense")
 	}
@@ -796,7 +774,6 @@ func Test_LeaderMultipleFailure(t *testing.T) {
 	data := "Cloud fun"
 	m, err = cl.write("cs733net", data, 0)
 	for err == nil && m.Kind=='R'{
-		fmt.Printf("Redirected to : %v\n", string(m.Contents))
 		cl=Redirect(t,m,cl)
 		m, err = cl.write("cs733net", data, 0)
 
@@ -806,7 +783,7 @@ func Test_LeaderMultipleFailure(t *testing.T) {
 	// Bring back the first node killed
 	StartServer(previousLeader, "true")
 
-	time.Sleep(5*time.Second)
+	time.Sleep(10*time.Second)
 
 	previousLeader=l
 
@@ -814,7 +791,7 @@ func Test_LeaderMultipleFailure(t *testing.T) {
 	leaderId = leader[len(leader)-1:]
 	l,_ =strconv.Atoi(leaderId)
 	KillServer(l)
-	fmt.Println("Leader Killed")
+	
 	// wait for few seconds for one of the node to timeout and a new leader to get elected
 	time.Sleep(8*time.Second)
 	
@@ -832,7 +809,6 @@ func Test_LeaderMultipleFailure(t *testing.T) {
 
 	m, err = cl.delete("Dsystems")
 	for err == nil && m.Kind=='R'{
-		fmt.Printf("Redirected to : %v\n", string(m.Contents))
 		cl=Redirect(t,m,cl)
 		m, err = cl.delete("Dsystems")
 	}
@@ -841,6 +817,8 @@ func Test_LeaderMultipleFailure(t *testing.T) {
 	// Bring back the previous leader
 	StartServer(previousLeader,"true")
 	time.Sleep(8*time.Second)
+	
+
 	follower := "localhost:900" + strconv.Itoa(previousLeader)
 	// make client connection with the follower and read all the above changes
 	cl = mkClient(t, follower)
@@ -874,7 +852,6 @@ func Test_MajorityNodeFailure(t *testing.T) {
 	m, err := cl.write("cloudSuspense", "zoo", 0)
 	for err == nil && m.Kind=='R'{
 		leader = string(m.Contents)
-		fmt.Printf("Redirected to : %v\n", string(m.Contents))
 		cl=Redirect(t,m,cl)
 		m, err = cl.write("cloudSuspense", "zoo", 0)
 	}
@@ -888,7 +865,6 @@ func Test_MajorityNodeFailure(t *testing.T) {
 	for i:=1;i<=3;i++{
 		KillServer((l+i)%5 + 1)
 	}
-	fmt.Println("Killed")
 	// give an append to leader. The client will hang and wait for response and leader will indefinitely try to get votes from majority
 	var sem sync.WaitGroup
 	sem.Add(1)
@@ -896,18 +872,15 @@ func Test_MajorityNodeFailure(t *testing.T) {
 		data := "Cloud fun"
 		m, err = cl.write("cs733net", data, 0)
 		for err == nil && m.Kind=='R'{
-			fmt.Printf("Redirected to : %v\n", string(m.Contents))
 			cl=Redirect(t,m,cl)
 			m, err = cl.write("cs733net", data, 0)
 
 		}
-		fmt.Println("Written")
 		sem.Done()
 	}()
 	
-	time.Sleep(10*time.Second)
+	time.Sleep(10*time.Second) // client is stuck for this period
 
-	fmt.Println("Starting")
 	// Now start servers
 	for i:=1;i<=3;i++{
 		StartServer((l+i)%5 + 1,"true")

@@ -9,31 +9,19 @@ import (
 
 func (rn *RaftNode) AlarmHandler(ac Alarm) {
 	rn.timer.Reset(time.Duration(ac.t) * time.Millisecond)
-/*	select {
-		case <- rn.timer.C: 
-		default: 
-	}*/
 }
 
 func (rn *RaftNode) SendHandler(ac Send) {
 	var ev interface{}
 	switch ac.Event.(type) {
 	case VoteRequestEvent:
-		//		fmt.Printf("%v Id VoteRequestEvent Send \n", rn.rc.Id)
 		ev = ac.Event.(VoteRequestEvent)
-		//		PrintVoteReqEvent(ev.(VoteRequestEvent))
 	case VoteResponseEvent:
 		ev = ac.Event.(VoteResponseEvent)
-		//		fmt.Printf("%v Id VoteResponseEvent Send\n", rn.rc.Id)
-		//		PrintVoteResEvent(ev.(VoteResponseEvent))
 	case AppendEntriesRequestEvent:
-		//		fmt.Printf("%v Id AppendEntriesRequestEvent  send\n", rn.rc.Id)
 		ev = ac.Event.(AppendEntriesRequestEvent)
-		//		PrintAppendEntriesReqEvent(ev.(AppendEntriesRequestEvent))
 	case AppendEntriesResponseEvent:
-		//		fmt.Printf("%v Id AppendEntriesResponseEvent Send\n", rn.rc.Id)
 		ev = ac.Event.(AppendEntriesResponseEvent)
-		//		PrintAppendEntriesResEvent(ev.(AppendEntriesResponseEvent))
 	}
 	rn.srvr.Outbox() <- &cluster.Envelope{Pid: ac.PeerId, Msg: ev}
 }
