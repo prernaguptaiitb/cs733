@@ -10,14 +10,14 @@ Each file has a version and the API supports a “compare and swap” operation 
 
 ### Installation
 
-###### Note: You need to have golang installed in your system.
+######## Note: You need to have golang installed in your system.
 ```
 go get github.com/prernaguptaiitb/cs733/assign4
 go test github.com/prernaguptaiitb/cs733/assign4
 go build
 ./assign4 <server-id> <false> 
 ```
-###### Note: First argument is the id of the server and the second argument takes value false or true depending on whether you want to start server in the clean state or bring it up from the state it left earlier. 
+######## Note: First argument is the id of the server and the second argument takes value false or true depending on whether you want to start server in the clean state or bring it up from the state it left earlier. 
 
 Each server in the cluster can be started using the above command.
 
