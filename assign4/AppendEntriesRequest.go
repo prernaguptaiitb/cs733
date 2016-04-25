@@ -31,32 +31,32 @@ func (sm *StateMachine) AppendEntriesRequestLeaderorCandidate(msg AppendEntriesR
 		action = append(action, Send{msg.LeaderId, AppendEntriesResponseEvent{FromId: sm.myconfig.myId, Term: sm.currentTerm, IsSuccessful: false, Index: sm.logCurrentIndex}})
 	} else {
 		//request from valid leader. Update the Term, change to follower state and then process RPC
-	/*	if sm.currentTerm < msg.Term {
+		/*	if sm.currentTerm < msg.Term {
 			sm.votedFor = 0
 		}*/
-		sm.votedFor=msg.LeaderId
+		sm.votedFor = msg.LeaderId
 		sm.currentTerm = msg.Term
-	/*	if sm.state == "LEADER"{
+		/*	if sm.state == "LEADER"{
 			actionsPending := sm.PendingRequest()
-			action = append(action, actionsPending...)	
+			action = append(action, actionsPending...)
 		}*/
 		sm.state = "FOLLOWER"
 
 		// call follower function
 		action = append(action, sm.AppendEntriesRequestFollower(msg))
-		
+
 	}
 	return action
 }
 
-func (sm *StateMachine) AppendEntriesRequestFollower(msg AppendEntriesRequestEvent) []interface{} {	
+func (sm *StateMachine) AppendEntriesRequestFollower(msg AppendEntriesRequestEvent) []interface{} {
 	var action []interface{}
 	if sm.currentTerm > msg.Term {
 		//request from invalid leader - send leader’s current Term and failure
 		action = append(action, Send{PeerId: msg.LeaderId, Event: AppendEntriesResponseEvent{FromId: sm.myconfig.myId, Term: sm.currentTerm, IsSuccessful: false, Index: sm.logCurrentIndex}})
 
 	} else {
-	/*	if sm.currentTerm < msg.Term {
+		/*	if sm.currentTerm < msg.Term {
 			sm.votedFor = 0
 		}*/
 		sm.votedFor = msg.LeaderId
@@ -72,23 +72,23 @@ func (sm *StateMachine) AppendEntriesRequestFollower(msg AppendEntriesRequestEve
 		if (msg.PrevLogIndex != -1) && (l <= msg.PrevLogIndex || sm.log[msg.PrevLogIndex].Term != msg.PrevLogTerm) {
 			action = append(action, Send{PeerId: msg.LeaderId, Event: AppendEntriesResponseEvent{FromId: sm.myconfig.myId, Term: sm.currentTerm, IsSuccessful: false, Index: sm.logCurrentIndex}})
 		} else {
-			
+
 			// find the index till where the log matches
 			i := msg.PrevLogIndex + 1
 			for ; i < msg.PrevLogIndex+1+len(msg.Data); i++ {
-				if i<len(sm.log) && sm.log[i].Term == msg.Data[i-msg.PrevLogIndex-1].Term{
-						continue
-				}else{
+				if i < len(sm.log) && sm.log[i].Term == msg.Data[i-msg.PrevLogIndex-1].Term {
+					continue
+				} else {
 					break
 				}
 			}
 			sm.log = sm.log[:i]
-			for j:=i; j< msg.PrevLogIndex+1+len(msg.Data); j++ {
+			for j := i; j < msg.PrevLogIndex+1+len(msg.Data); j++ {
 				sm.log = append(sm.log, msg.Data[j-msg.PrevLogIndex-1])
 				action = append(action, LogStore{Index: j, LogData: msg.Data[j-msg.PrevLogIndex-1]})
 			}
 
-				//			fmt.Printf("ID: %v , LogStore--> Index:%v, LogData : %v\n",sm.myconfig.myId,i, msg.Data[i-msg.PrevLogIndex-1])
+			//			fmt.Printf("ID: %v , LogStore--> Index:%v, LogData : %v\n",sm.myconfig.myId,i, msg.Data[i-msg.PrevLogIndex-1])
 			//Update logCurrentIndex
 			sm.logCurrentIndex = len(sm.log) - 1
 			action = append(action, Send{PeerId: msg.LeaderId, Event: AppendEntriesResponseEvent{FromId: sm.myconfig.myId, Term: sm.currentTerm, IsSuccessful: true, Index: sm.logCurrentIndex}})
@@ -99,7 +99,7 @@ func (sm *StateMachine) AppendEntriesRequestFollower(msg AppendEntriesRequestEve
 				}
 				sm.logCommitIndex = Min(msg.LeaderCommitIndex, sm.logCurrentIndex)
 			}
-		
+
 		}
 	}
 	return action

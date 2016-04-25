@@ -26,13 +26,13 @@ func (sm *StateMachine) VoteRequestLeaderorCandidate(msg VoteRequestEvent) []int
 	if sm.currentTerm < msg.Term {
 		// Update the Term and change to follower state
 		sm.currentTerm = msg.Term
-	/*	if sm.state == "LEADER"{
+		/*	if sm.state == "LEADER"{
 			actionsPending := sm.PendingRequest()
 			action = append(action, actionsPending...)
 		}*/
 		sm.state = "FOLLOWER"
 		sm.votedFor = 0
-		
+
 		//if candidate log is at least as up-to-date as this leaders log, then grant vote otherwise not
 		var LastlogTerm int
 		if sm.logCurrentIndex == -1 {
@@ -44,7 +44,7 @@ func (sm *StateMachine) VoteRequestLeaderorCandidate(msg VoteRequestEvent) []int
 		if (LastlogTerm < msg.LastLogTerm) || ((LastlogTerm == msg.LastLogTerm) && (sm.logCurrentIndex <= msg.LastLogIndex)) {
 			//grant vote
 			sm.votedFor = msg.CandidateId
-			
+
 			action = append(action, Send{PeerId: msg.CandidateId, Event: VoteResponseEvent{Term: sm.currentTerm, IsVoteGranted: true}})
 
 		} else {
@@ -52,7 +52,7 @@ func (sm *StateMachine) VoteRequestLeaderorCandidate(msg VoteRequestEvent) []int
 			action = append(action, Send{PeerId: msg.CandidateId, Event: VoteResponseEvent{Term: sm.currentTerm, IsVoteGranted: false}})
 		}
 		action = append(action, StateStore{sm.state, sm.currentTerm, sm.votedFor})
-		
+
 	} else {
 		// reject vote
 		action = append(action, Send{PeerId: msg.CandidateId, Event: VoteResponseEvent{Term: sm.currentTerm, IsVoteGranted: false}})

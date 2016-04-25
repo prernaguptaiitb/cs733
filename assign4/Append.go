@@ -2,7 +2,7 @@ package main
 
 import (
 	"errors"
-//	"fmt"
+	//	"fmt"
 )
 
 type AppendEvent struct {
@@ -23,7 +23,7 @@ func (sm *StateMachine) Append(msg AppendEvent) []interface{} {
 }
 
 func (sm *StateMachine) AppendLeader(msg AppendEvent) []interface{} {
-//	fmt.Printf( " Id  : %v Append Message Recieved \n ", sm.myconfig.myId )
+	//	fmt.Printf( " Id  : %v Append Message Recieved \n ", sm.myconfig.myId )
 	var action []interface{}
 	// append Data to leaders local log and do not send to followers. Let the append go to the followers through heartbeat
 	sm.logCurrentIndex++

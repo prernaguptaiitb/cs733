@@ -35,8 +35,8 @@ func (sm *StateMachine) AppendEntriesResponseLeader(msg AppendEntriesResponseEve
 			sm.votedFor = 0
 			action = append(action, Alarm{t: Random(sm.electionTO)})
 			action = append(action, StateStore{sm.state, sm.currentTerm, sm.votedFor})
-		/*	actionsPending := sm.PendingRequest()
-			action = append(action, actionsPending...)*/
+			/*	actionsPending := sm.PendingRequest()
+				action = append(action, actionsPending...)*/
 		} else {
 			// follower rejected because previous entries didn't match
 			sm.nextIndex[i] = Max(0, sm.nextIndex[i]-1)

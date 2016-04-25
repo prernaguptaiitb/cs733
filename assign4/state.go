@@ -1,9 +1,9 @@
 package main
 
 import (
-	"math/rand"
 	"errors"
 	"fmt"
+	"math/rand"
 )
 
 type Config struct {
@@ -70,9 +70,9 @@ func (sm *StateMachine) ProcessEvent(ev interface{}) []interface{} {
 func (sm *StateMachine) PendingRequest() []interface{} {
 
 	var action []interface{}
-	for i:=sm.logCommitIndex + 1;i <= sm.logCurrentIndex ;i++{
+	for i := sm.logCommitIndex + 1; i <= sm.logCurrentIndex; i++ {
 		fmt.Printf("Id: %v Pending Requests: %v\n", sm.myconfig.myId, i)
-		action = append(action, Commit{Index: -1, Data: sm.log[i].Cmd , Err: errors.New("Error in committing. Not a leader. Redirect")})
+		action = append(action, Commit{Index: -1, Data: sm.log[i].Cmd, Err: errors.New("Error in committing. Not a leader. Redirect")})
 	}
 	return action
 }

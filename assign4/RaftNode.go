@@ -1,4 +1,3 @@
-
 package main
 
 import (
@@ -6,11 +5,10 @@ import (
 	"fmt"
 	"github.com/cs733-iitb/cluster"
 	"github.com/cs733-iitb/log"
-	"os"
-	"time"
-	"strconv"
 	"math/rand"
-	//	"reflect"
+	"os"
+	"strconv"
+	"time"
 )
 
 // data goes in via Append, comes out as CommitInfo from the node's CommitChannel
@@ -30,6 +28,8 @@ type RaftNode struct {
 	CommitCh chan CommitInfo  //for committed entries
 	timer    *time.Timer
 	quit     chan bool
+	stateFP  *os.File // pointer to the state file
+	logFP    *log.Log
 }
 
 type NetConfig struct {
@@ -42,7 +42,7 @@ type RaftConfig struct {
 	cluster          []NetConfig // Information about all servers, including this.
 	Id               int         // this node's id.
 	LogDir           string      // Log file directory for this node
-	StateFile         string      // State file directory for this node. State file stores the state, current term and voted For in this order.
+	StateFile        string      // State file directory for this node. State file stores the state, current term and voted For in this order.
 	ElectionTimeout  int
 	HeartbeatTimeout int
 }
@@ -57,12 +57,12 @@ func New(RaftNode_config RaftConfig) RaftNode {
 	//make raftnode object and set it
 	var rn RaftNode
 	rn.rc = RaftNode_config
-	rn.sm = InitializeStateMachine(RaftNode_config)
+	rn.InitializeStateMachine(RaftNode_config)
 	rn.EventCh = make(chan interface{}, 50000)
 	rn.CommitCh = make(chan CommitInfo, 50000)
 	rand.Seed(time.Now().UnixNano())
 	rn.timer = time.NewTimer(time.Duration(Random(RaftNode_config.ElectionTimeout)) * time.Millisecond)
-	
+
 	rn.quit = make(chan bool)
 	rn.srvr, _ = cluster.New(RaftNode_config.Id, "Config.json") //make server object for communication
 	// register events
@@ -74,67 +74,61 @@ func New(RaftNode_config RaftConfig) RaftNode {
 	return rn
 }
 
-func InitializeStateMachine(RaftNode_config RaftConfig) StateMachine {
+func (rn *RaftNode) InitializeStateMachine(RaftNode_config RaftConfig) {
 
-	var smobj StateMachine
+	//	var smobj StateMachine
+
 	// initialize config structure of state machine
-	smobj.myconfig.myId = RaftNode_config.Id
+	rn.sm.myconfig.myId = RaftNode_config.Id
 	for i := 0; i < len(RaftNode_config.cluster); i++ {
 		if RaftNode_config.cluster[i].Id != RaftNode_config.Id {
-			smobj.myconfig.peer = append(smobj.myconfig.peer, RaftNode_config.cluster[i].Id)
+			rn.sm.myconfig.peer = append(rn.sm.myconfig.peer, RaftNode_config.cluster[i].Id)
 		}
 	}
+
 	// initialize state, current term and voted For of the state machine
-/*	var ok bool
-	stateFile := RaftNode_config.StateFile + "/" + "mystate"
-	state, err := log.Open(stateFile)
-	state.RegisterSampleEntry(SMState{})
-	defer state.Close()
-	assert(err == nil)
-	res, err := state.Get(0)
-	assert(err == nil)
-	data, ok := res.(SMState)
-	assert(ok)*/
-	stateFile := RaftNode_config.StateFile 
-	data:=ReadState(stateFile) 
-	smobj.state = data.State
-	smobj.currentTerm = data.CurrentTerm
-	smobj.votedFor = data.VotedFor
+	stateFile := RaftNode_config.StateFile
+	rn.stateFP = OpenFile(stateFile)
+	data := ReadState(rn.stateFP)
+	rn.sm.state = data.State
+	rn.sm.currentTerm = data.CurrentTerm
+	rn.sm.votedFor = data.VotedFor
+
 	// initialize statemachine log
 	lgFile := RaftNode_config.LogDir + "/" + "logfile"
-	lg, err := log.Open(lgFile)
-	lg.RegisterSampleEntry(LogEntry{})
-	defer lg.Close()
+	var err error
+	rn.logFP, err = log.Open(lgFile)
+	rn.logFP.RegisterSampleEntry(LogEntry{})
 	assert(err == nil)
-	i := int(lg.GetLastIndex())
+	i := int(rn.logFP.GetLastIndex())
 	for cnt := 0; cnt <= i; cnt++ {
-		data, err := lg.Get(int64(cnt))
+		data, err := rn.logFP.Get(int64(cnt))
 		assert(err == nil)
 		lgentry, ok := data.(LogEntry)
 		assert(ok)
-		smobj.log = append(smobj.log, lgentry)
+		rn.sm.log = append(rn.sm.log, lgentry)
 	}
-	smobj.logCurrentIndex = int(lg.GetLastIndex())
-	smobj.logCommitIndex = -1
+	rn.sm.logCurrentIndex = int(rn.logFP.GetLastIndex())
+	rn.sm.logCommitIndex = -1
+
 	//initialize match index and next index
 	for i := 0; i < len(RaftNode_config.cluster); i++ {
 		if RaftNode_config.cluster[i].Id != RaftNode_config.Id {
-			smobj.nextIndex = append(smobj.nextIndex, smobj.logCurrentIndex+1)
-			smobj.matchIndex = append(smobj.matchIndex, -1)
+			rn.sm.nextIndex = append(rn.sm.nextIndex, rn.sm.logCurrentIndex+1)
+			rn.sm.matchIndex = append(rn.sm.matchIndex, -1)
 
 		}
 	}
 
-	smobj.yesVotesNum = 0
-	smobj.noVotesNum = 0
-	smobj.electionTO = RaftNode_config.ElectionTimeout
-	smobj.heartbeatTO = RaftNode_config.HeartbeatTimeout
-	return smobj
+	rn.sm.yesVotesNum = 0
+	rn.sm.noVotesNum = 0
+	rn.sm.electionTO = RaftNode_config.ElectionTimeout
+	rn.sm.heartbeatTO = RaftNode_config.HeartbeatTimeout
+	//	return smobj
 }
 
 // Client's message to Raft node
 func (rn *RaftNode) Append(data []byte) {
-	//	fmt.Printf("Id : %v Append event\n", rn.rc.Id)
 	rn.EventCh <- AppendEvent{Data: data}
 }
 
@@ -150,11 +144,7 @@ func (rn *RaftNode) CommittedIndex() int {
 
 // Returns the data at a log index, or an error.
 func (rn *RaftNode) Get(index int) (error, []byte) {
-	lgFile := rn.rc.LogDir + "/" + "logfile"
-	lg, err := log.Open(lgFile)
-	defer lg.Close()
-//	assert(err == nil)
-	lgentry, err := lg.Get(int64(index))
+	lgentry, err := rn.logFP.Get(int64(index))
 	le, _ := lgentry.(LogEntry)
 	data := le.Cmd
 	return err, data
@@ -172,43 +162,36 @@ func (rn *RaftNode) LeaderId() int {
 
 // Signal to shut down all goroutines, stop sockets, flush log and close it, cancel timers.
 func (rn *RaftNode) Shutdown() {
+	rn.stateFP.Close()
+	rn.logFP.Close()
 	rn.quit <- true
 	rn.srvr.Close()
 
 }
 
 func InitializeState(sd string) {
-
-	WriteState(sd, StateStore{State: "FOLLOWER", Term: 0, VotedFor: 0})
-	/*
-	stateFile := sd + "/" + "mystate"
-	st, err := log.Open(stateFile)
-	assert(err == nil)
-	st.RegisterSampleEntry(SMState{})
-	defer st.Close()
-	err = st.Append(SMState{State: "FOLLOWER", CurrentTerm: 0, VotedFor: 0})
-	assert(err == nil)*/
+	f := OpenFile(sd)
+	WriteState(f, StateStore{State: "FOLLOWER", Term: 0, VotedFor: 0})
+	CloseFile(f)
 }
 
-func RestartNode(i int, clusterconf []NetConfig) RaftNode{
+func RestartNode(i int, clusterconf []NetConfig) RaftNode {
 
 	ld := "myLogDir" + strconv.Itoa(i)
 	sd := "StateId_" + strconv.Itoa(i)
-	eo := 4000 
+	eo := 4000
 	rc := RaftConfig{cluster: clusterconf, Id: i, LogDir: ld, StateFile: sd, ElectionTimeout: eo, HeartbeatTimeout: 600}
 	rs := New(rc)
 	return rs
 
 }
 
-func  BringNodeUp(i int, clusterconf []NetConfig) RaftNode {
+func BringNodeUp(i int, clusterconf []NetConfig) RaftNode {
 	sd := "StateId_" + strconv.Itoa(i)
 	InitializeState(sd)
-	rs := RestartNode(i,clusterconf)
+	rs := RestartNode(i, clusterconf)
 	return rs
 }
-
-
 
 func (rn *RaftNode) processEvents() {
 	var actions []interface{}
@@ -217,37 +200,20 @@ func (rn *RaftNode) processEvents() {
 		select {
 		case ev = <-rn.EventCh:
 			actions = rn.sm.ProcessEvent(ev)
-//			fmt.Printf("Node Id : %v Actions : %v\n", rn.rc.Id, actions)
 			rn.doActions(actions)
-			//	case ev = <-rn.TimeoutCh:
 		case <-rn.timer.C:
-//			fmt.Printf("ID: %v Timeout event generated\n", rn.rc.Id)
 			actions = rn.sm.ProcessEvent(TimeoutEvent{})
 			rn.doActions(actions)
 		case env := <-rn.srvr.Inbox():
 			switch env.Msg.(type) {
 			case VoteRequestEvent:
 				ev = env.Msg.(VoteRequestEvent)
-				//				fmt.Printf("%v Id VoteRequestEvent Received \n", rn.rc.Id)
-				//				PrintVoteReqEvent(ev.(VoteRequestEvent))
 			case VoteResponseEvent:
 				ev = env.Msg.(VoteResponseEvent)
-				//				fmt.Printf("%v Id VoteResponseEvent Received\n", rn.rc.Id)
-				//				PrintVoteResEvent(ev.(VoteResponseEvent))
 			case AppendEntriesRequestEvent:
 				ev = env.Msg.(AppendEntriesRequestEvent)
-			/*	if rn.rc.Id == 3 {
-					PrintAppendEntriesReqEvent(ev.(AppendEntriesRequestEvent))
-				}*/
-				//				fmt.Printf("%v Id AppendEntriesRequestEvent  Received\n", rn.rc.Id)
-				//				PrintAppendEntriesReqEvent(ev.(AppendEntriesRequestEvent))
 			case AppendEntriesResponseEvent:
 				ev = env.Msg.(AppendEntriesResponseEvent)
-/*				if  rn.rc.Id == 1 {
-					PrintAppendEntriesResEvent(ev.(AppendEntriesResponseEvent))
-				}*/
-				//				fmt.Printf("%v Id AppendEntriesResponseEvent Received\n", rn.rc.Id)
-				//				PrintAppendEntriesResEvent(ev.(AppendEntriesResponseEvent))
 
 			}
 			rn.EventCh <- ev

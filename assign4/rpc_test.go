@@ -1,4 +1,5 @@
 package main
+
 /*
 
 import (
@@ -191,7 +192,7 @@ func TestRPC_BasicTimer(t *testing.T) {
 	expect(t, m, &Msg{Kind: 'F'}, "file not found after 4 sec", err)
 
 	// Create the file with an expiry time of 1 sec. We're going to delete it
-	// then immediately create it. The new file better not get deleted. 
+	// then immediately create it. The new file better not get deleted.
 	m, err = cl.write("cs733", str, 1)
 	expect(t, m, &Msg{Kind: 'O'}, "file created for delete", err)
 
@@ -296,7 +297,7 @@ func TestRPC_ConcurrentCas(t *testing.T) {
 	wg.Add(nclients)
 
 	errorCh := make(chan error, nclients)
-	
+
 	for i := 0; i < nclients; i++ {
 		go func(i int, ver int, cl *Client) {
 			sem.Wait()

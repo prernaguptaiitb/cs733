@@ -1,18 +1,17 @@
 package main
 
-import(
+import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"os"
 	"strconv"
 	"strings"
-	"io/ioutil"
-	"fmt"
-	"encoding/json"
-	"os"
 )
 
-
 type Peer struct {
-	Id      int
-	Address string
+	Id        int
+	Address   string
 	FSAddress string
 }
 
@@ -20,7 +19,7 @@ type ClusterConfig struct {
 	Peers []Peer
 }
 
-func IfError(err error, msg string){
+func IfError(err error, msg string) {
 	if err != nil {
 		fmt.Print("Error:", msg)
 		os.Exit(1)
@@ -29,13 +28,12 @@ func IfError(err error, msg string){
 
 func readJSONFile(configFile string) ClusterConfig {
 	content, err := ioutil.ReadFile(configFile)
-	IfError(err,"Error in Reading Json File")
+	IfError(err, "Error in Reading Json File")
 	var conf ClusterConfig
 	err = json.Unmarshal(content, &conf)
-	IfError(err,"Error in Unmarshaling Json File")
+	IfError(err, "Error in Unmarshaling Json File")
 	return conf
 }
-
 
 func makeRaftNetConfig(conf ClusterConfig) []NetConfig {
 	clusterconf := make([]NetConfig, len(conf.Peers))
@@ -57,6 +55,3 @@ func makeFSNetConfig(conf ClusterConfig) []FSConfig {
 	}
 	return fsconf
 }
-
-
-

@@ -17,5 +17,4 @@ type Node interface {
 	Shutdown()
 	//Bring Node up after shutdown or failure
 	BringNodeUp(conf ClusterConfig, i int, rafts []RaftNode)
-
 }
