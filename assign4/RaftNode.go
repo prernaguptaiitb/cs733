@@ -42,7 +42,7 @@ type RaftConfig struct {
 	cluster          []NetConfig // Information about all servers, including this.
 	Id               int         // this node's id.
 	LogDir           string      // Log file directory for this node
-	StateDir         string      // State file directory for this node. State file stores the state, current term and voted For in this order.
+	StateFile         string      // State file directory for this node. State file stores the state, current term and voted For in this order.
 	ElectionTimeout  int
 	HeartbeatTimeout int
 }
@@ -85,8 +85,8 @@ func InitializeStateMachine(RaftNode_config RaftConfig) StateMachine {
 		}
 	}
 	// initialize state, current term and voted For of the state machine
-	var ok bool
-	stateFile := RaftNode_config.StateDir + "/" + "mystate"
+/*	var ok bool
+	stateFile := RaftNode_config.StateFile + "/" + "mystate"
 	state, err := log.Open(stateFile)
 	state.RegisterSampleEntry(SMState{})
 	defer state.Close()
@@ -94,7 +94,9 @@ func InitializeStateMachine(RaftNode_config RaftConfig) StateMachine {
 	res, err := state.Get(0)
 	assert(err == nil)
 	data, ok := res.(SMState)
-	assert(ok)
+	assert(ok)*/
+	stateFile := RaftNode_config.StateFile 
+	data:=ReadState(stateFile) 
 	smobj.state = data.State
 	smobj.currentTerm = data.CurrentTerm
 	smobj.votedFor = data.VotedFor
@@ -176,29 +178,31 @@ func (rn *RaftNode) Shutdown() {
 }
 
 func InitializeState(sd string) {
-	
+
+	WriteState(sd, StateStore{State: "FOLLOWER", Term: 0, VotedFor: 0})
+	/*
 	stateFile := sd + "/" + "mystate"
 	st, err := log.Open(stateFile)
 	assert(err == nil)
 	st.RegisterSampleEntry(SMState{})
 	defer st.Close()
 	err = st.Append(SMState{State: "FOLLOWER", CurrentTerm: 0, VotedFor: 0})
-	assert(err == nil)
+	assert(err == nil)*/
 }
 
 func RestartNode(i int, clusterconf []NetConfig) RaftNode{
 
 	ld := "myLogDir" + strconv.Itoa(i)
-	sd := "myStateDir" + strconv.Itoa(i)
+	sd := "StateId_" + strconv.Itoa(i)
 	eo := 4000 
-	rc := RaftConfig{cluster: clusterconf, Id: i, LogDir: ld, StateDir: sd, ElectionTimeout: eo, HeartbeatTimeout: 600}
+	rc := RaftConfig{cluster: clusterconf, Id: i, LogDir: ld, StateFile: sd, ElectionTimeout: eo, HeartbeatTimeout: 600}
 	rs := New(rc)
 	return rs
 
 }
 
 func  BringNodeUp(i int, clusterconf []NetConfig) RaftNode {
-	sd := "myStateDir" + strconv.Itoa(i)
+	sd := "StateId_" + strconv.Itoa(i)
 	InitializeState(sd)
 	rs := RestartNode(i,clusterconf)
 	return rs
@@ -279,7 +283,8 @@ func (rn *RaftNode) doActions(actions []interface{}) {
 
 func assert(val bool) {
 	if !val {
-		panic("Assertion Failed")
+		fmt.Println("Assertion Failed")
+		os.Exit(1)
 	}
 
 }

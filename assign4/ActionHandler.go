@@ -64,8 +64,10 @@ func (rn *RaftNode) LogStoreHandler(ac LogStore) {
 }
 
 func (rn *RaftNode) StateStoreHandler(ac StateStore) {
+
+	WriteState(rn.rc.StateFile, ac)
 	//	fmt.Printf("%v StateStore generated\n", rn.rc.Id)
-	stateFile := rn.rc.StateDir + "/" + "mystate"
+/*	stateFile := rn.rc.StateDir + "/" + "mystate"
 	state, err := log.Open(stateFile)
 	state.RegisterSampleEntry(SMState{})
 	defer state.Close()
@@ -75,5 +77,5 @@ func (rn *RaftNode) StateStoreHandler(ac StateStore) {
 	err = state.Append(ss)
 	assert(err == nil)
 
-
+*/
 }
