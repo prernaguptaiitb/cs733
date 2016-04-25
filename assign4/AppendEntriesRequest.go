@@ -31,9 +31,10 @@ func (sm *StateMachine) AppendEntriesRequestLeaderorCandidate(msg AppendEntriesR
 		action = append(action, Send{msg.LeaderId, AppendEntriesResponseEvent{FromId: sm.myconfig.myId, Term: sm.currentTerm, IsSuccessful: false, Index: sm.logCurrentIndex}})
 	} else {
 		//request from valid leader. Update the Term, change to follower state and then process RPC
-		if sm.currentTerm < msg.Term {
+	/*	if sm.currentTerm < msg.Term {
 			sm.votedFor = 0
-		}
+		}*/
+		sm.votedFor=msg.LeaderId
 		sm.currentTerm = msg.Term
 	/*	if sm.state == "LEADER"{
 			actionsPending := sm.PendingRequest()
@@ -55,9 +56,10 @@ func (sm *StateMachine) AppendEntriesRequestFollower(msg AppendEntriesRequestEve
 		action = append(action, Send{PeerId: msg.LeaderId, Event: AppendEntriesResponseEvent{FromId: sm.myconfig.myId, Term: sm.currentTerm, IsSuccessful: false, Index: sm.logCurrentIndex}})
 
 	} else {
-		if sm.currentTerm < msg.Term {
+	/*	if sm.currentTerm < msg.Term {
 			sm.votedFor = 0
-		}
+		}*/
+		sm.votedFor = msg.LeaderId
 		sm.currentTerm = msg.Term
 		//Reset Election Timer
 		action = append(action, Alarm{t: Random(sm.electionTO)})
@@ -71,9 +73,6 @@ func (sm *StateMachine) AppendEntriesRequestFollower(msg AppendEntriesRequestEve
 			action = append(action, Send{PeerId: msg.LeaderId, Event: AppendEntriesResponseEvent{FromId: sm.myconfig.myId, Term: sm.currentTerm, IsSuccessful: false, Index: sm.logCurrentIndex}})
 		} else {
 			
-//			sm.log = sm.log[:msg.PrevLogIndex+1]
-//			sm.log = append(sm.log, msg.Data...)
-
 			// find the index till where the log matches
 			i := msg.PrevLogIndex + 1
 			for ; i < msg.PrevLogIndex+1+len(msg.Data); i++ {

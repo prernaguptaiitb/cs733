@@ -11,7 +11,7 @@ import (
 	"time"
 	"os"
 	"os/exec"
-//	"sync"
+	"sync"
 	"log"
 	"fmt"
 )
@@ -22,8 +22,8 @@ func clearFiles(file string) {
 
 var fileServer []*exec.Cmd
 
-func StartServer(i int){
-	fileServer[i-1] = exec.Command("./assign4",strconv.Itoa(i),"false")
+func StartServer(i int, restartflag string){
+	fileServer[i-1] = exec.Command("./assign4",strconv.Itoa(i),restartflag)
    	fileServer[i-1].Stdout = os.Stdout
     fileServer[i-1].Stdin = os.Stdin
     fileServer[i-1].Start()
@@ -35,9 +35,9 @@ func StartAllServerProcess(){
 	for i := 1 ; i <=len(conf.Peers); i++ {
 		clearFiles("myLogDir" + strconv.Itoa(i) + "/logfile")
 		clearFiles("myStateDir" + strconv.Itoa(i) + "/mystate")	
-    	StartServer(i)
+    	StartServer(i,"false")
 	}
-	time.Sleep(6 * time.Second)
+	time.Sleep(8* time.Second)
 }
 
 func KillServer(i int){
@@ -87,7 +87,7 @@ func startServers(){
 //operations. But ultimately they should be redirected to the leader. After all the updates, clients try to read the updated files from the
 //follower. This should be successful. Finally, all the servers are killed.
 
-
+/*
 
 func TestBasic(t *testing.T) {
 
@@ -356,11 +356,11 @@ func TestRPC_BasicTimer(t *testing.T) {
 
 //############################################################# Assignment 1 Concurrent Test Cases ###################################
 
-// nclients write to the same file. At the end the file should be any one clients' last write
+// nclients write to the same file. At the end the file should be any one clients' last write. 
 
 func TestRPC_ConcurrentWrites(t *testing.T) {
 	StartAllServerProcess()
-	nclients := 50
+	nclients := 10  // It works for 500 clients and 5 iterations but takes time
 	niters := 5
 	clients := make([]*Client, nclients)
 	addr := [5]string{"localhost:9001", "localhost:9002","localhost:9003","localhost:9004","localhost:9005"}
@@ -510,7 +510,7 @@ func TestRPC_ConcurrentCas(t *testing.T) {
 	fmt.Println("Pass : TestRPC_ConcurrentCas")
 }
 
-
+*/
 // ################################################## Node Failure Test #####################################
 
 
@@ -605,7 +605,7 @@ func Test_FollowerFailure(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 
 	// Bring back the follower
-	StartServer(foll)
+	StartServer(foll, "true")
 	time.Sleep(6* time.Second) // wait for some time for the entries to be replicated and then read the three files
 
 	follower := "localhost:900" + strconv.Itoa(foll)
@@ -665,7 +665,7 @@ func Test_LeaderFailure(t *testing.T) {
 	KillServer(l)
 
 	// wait for few seconds for one of the node to timeout and a new leader to get elected
-	time.Sleep(6*time.Second)
+	time.Sleep(10*time.Second)
 
 	if l==1{
 		cl =mkClient(t,"localhost:9002")
@@ -691,11 +691,11 @@ func Test_LeaderFailure(t *testing.T) {
 	expect(t, m, &Msg{Kind: 'O'}, "Test_LeaderFailure : DSystemsSuccess", err)
 
 	// Bring back the previous leader
-	StartServer(l)
-	time.Sleep(5*time.Second)
+	StartServer(l, "true")
+	time.Sleep(30*time.Second)
 	// make client connection with the previous leader and read all the above changes
 	cl = mkClient(t, leader)
-
+	fmt.Printf("cl : %v \n",cl)
 	m, err = cl.read("cs733net")
 	expect(t, m, &Msg{Kind: 'F'}, "file not found", err)
 
@@ -733,16 +733,17 @@ func Test_LeaderMultipleFailure(t *testing.T) {
 		m, err = cl.write("cloudSuspense", "zoo", 0)
 	}
 	expect(t, m, &Msg{Kind: 'O'}, "Test_LeaderMultipleFailure: Write CloudSuspense success", err)
-
+	time.Sleep(1*time.Second)
 
 	//Kill the leader
 	leaderId := leader[len(leader)-1:]
 	l,_ :=strconv.Atoi(leaderId)
-	
-	//Kill leader
 	KillServer(l)
+	fmt.Println("Leader Killed")
+	previousLeader:=l
+
 	// wait for few seconds for one of the node to timeout and a new leader to get elected
-	time.Sleep(6*time.Second)
+	time.Sleep(8*time.Second)
 	
 	//system should still work
 	if l==1{
@@ -761,28 +762,31 @@ func Test_LeaderMultipleFailure(t *testing.T) {
 		m, err = cl.write("Dsystems", "zoo", 0)
 	}
 	expect(t, m, &Msg{Kind: 'O'}, "Test_LeaderMultipleFailure : DSystemsSuccess", err)
-
-	previousLeader:=l
-
+	time.Sleep(1*time.Second)
+	
 	// Now kill the leader again 
 	leaderId = leader[len(leader)-1:]
 	l,_ =strconv.Atoi(leaderId)
-	
-
-	// wait for few seconds for one of the node to timeout and a new leader to get elected
-	time.Sleep(6*time.Second)
+	KillServer(l)
+	fmt.Println("Leader Killed")
+	// wait for few seconds for one of the node to timeout and a new leader to get elected. 
+	time.Sleep(8*time.Second)
 	
 	//system should still work
-	if l==1{
-		cl =mkClient(t,"localhost:9002")
-		leader="localhost:9002"
-	}else{
+	if l!=1 && previousLeader !=1{
 		cl =mkClient(t,"localhost:9001")
 		leader="localhost:9001"
+	}else if l!=2 && previousLeader != 2{
+		cl =mkClient(t,"localhost:9002")
+		leader="localhost:9002"
+	}else if l!=3 && previousLeader !=3{
+		cl =mkClient(t,"localhost:9003")
+		leader="localhost:9003"
 	}
 
 	m, err = cl.delete("cloudSuspense")
 	for err == nil && m.Kind=='R'{
+		leader=string(m.Contents)
 		fmt.Printf("Redirected to : %v\n", string(m.Contents))
 		cl=Redirect(t,m,cl)
 		m, err = cl.delete("cloudSuspense")
@@ -800,29 +804,30 @@ func Test_LeaderMultipleFailure(t *testing.T) {
 	expect(t, m, &Msg{Kind: 'O'}, "Test_LeaderMultipleFailure : write cs733 success", err)
 
 	// Bring back the first node killed
-	StartServer(previousLeader)
+	StartServer(previousLeader, "true")
 
-	time.Sleep(2*time.Second)
+	time.Sleep(5*time.Second)
 
 	previousLeader=l
 
 	// Kill the leader again
-	//Kill the leader
 	leaderId = leader[len(leader)-1:]
 	l,_ =strconv.Atoi(leaderId)
-	
-	//Kill leader
 	KillServer(l)
+	fmt.Println("Leader Killed")
 	// wait for few seconds for one of the node to timeout and a new leader to get elected
-	time.Sleep(6*time.Second)
+	time.Sleep(8*time.Second)
 	
 	//system should still work
-	if l==1{
-		cl =mkClient(t,"localhost:9002")
-		leader="localhost:9002"
-	}else{
+	if l!=1 && previousLeader !=1{
 		cl =mkClient(t,"localhost:9001")
 		leader="localhost:9001"
+	}else if l!=2 && previousLeader != 2{
+		cl =mkClient(t,"localhost:9002")
+		leader="localhost:9002"
+	}else if l!=3 && previousLeader !=3{
+		cl =mkClient(t,"localhost:9003")
+		leader="localhost:9003"
 	}
 
 	m, err = cl.delete("Dsystems")
@@ -834,12 +839,13 @@ func Test_LeaderMultipleFailure(t *testing.T) {
 	expect(t, m, &Msg{Kind: 'O'}, "Test_LeaderMultipleFailure : DeleteDSystemssuccess", err)
 
 	// Bring back the previous leader
-	StartServer(previousLeader)
-	time.Sleep(5*time.Second)
+	StartServer(previousLeader,"true")
+	time.Sleep(8*time.Second)
 	follower := "localhost:900" + strconv.Itoa(previousLeader)
 	// make client connection with the follower and read all the above changes
 	cl = mkClient(t, follower)
 
+	// check the status of files modified by previous servers and confirm if they are as expected
 	m, err = cl.read("cs733net")
 	expect(t, m, &Msg{Kind: 'C', Contents: []byte("Cloud fun")}, "Test_LeaderMultipleFailure: Cs733 read", err)
 
@@ -849,15 +855,71 @@ func Test_LeaderMultipleFailure(t *testing.T) {
 	m, err = cl.read("cloudSuspense")
 	expect(t, m, &Msg{Kind: 'F'}, "file not found", err)
 
-	// check the status of files modified by previous servers and confirm if they are as expected
+	KillAllServerProcess()
+	fmt.Println("Test_LeaderMultipleFailure : Pass")
+}
+
+
+//################################### What if minority of nodes are alive ? ################################################
+
+func Test_MajorityNodeFailure(t *testing.T) {
+
+	StartAllServerProcess()
+		
+	var leader string = "localhost:9001"
+
+	// All nodes are working system should work
+	cl := mkClient(t, "localhost:9001")
+	
+	m, err := cl.write("cloudSuspense", "zoo", 0)
+	for err == nil && m.Kind=='R'{
+		leader = string(m.Contents)
+		fmt.Printf("Redirected to : %v\n", string(m.Contents))
+		cl=Redirect(t,m,cl)
+		m, err = cl.write("cloudSuspense", "zoo", 0)
+	}
+	expect(t, m, &Msg{Kind: 'O'}, "Test_LeaderMultipleFailure: Write CloudSuspense success", err)
+	time.Sleep(1*time.Second)
+
+	// Kill 3 followers . 
+	leaderId := leader[len(leader)-1:]
+	l,_ :=strconv.Atoi(leaderId)
+	
+	for i:=1;i<=3;i++{
+		KillServer((l+i)%5 + 1)
+	}
+	fmt.Println("Killed")
+	// give an append to leader. The client will hang and wait for response and leader will indefinitely try to get votes from majority
+	var sem sync.WaitGroup
+	sem.Add(1)
+	go func(){
+		data := "Cloud fun"
+		m, err = cl.write("cs733net", data, 0)
+		for err == nil && m.Kind=='R'{
+			fmt.Printf("Redirected to : %v\n", string(m.Contents))
+			cl=Redirect(t,m,cl)
+			m, err = cl.write("cs733net", data, 0)
+
+		}
+		fmt.Println("Written")
+		sem.Done()
+	}()
+	
+	time.Sleep(10*time.Second)
+
+	fmt.Println("Starting")
+	// Now start servers
+	for i:=1;i<=3;i++{
+		StartServer((l+i)%5 + 1,"true")
+	}
+
+	sem.Wait()
+	expect(t, m, &Msg{Kind: 'O'}, "Test_LeaderMultipleFailure : write cs733 success", err)
 
 
 	KillAllServerProcess()
-
+	fmt.Println("Test_MajorityNodeFailure : Pass")
 }
-
-*/
-
 
 // ################################################### Utility functions #####################################################
 

@@ -88,6 +88,7 @@ func InitializeStateMachine(RaftNode_config RaftConfig) StateMachine {
 	var ok bool
 	stateFile := RaftNode_config.StateDir + "/" + "mystate"
 	state, err := log.Open(stateFile)
+	state.RegisterSampleEntry(SMState{})
 	defer state.Close()
 	assert(err == nil)
 	res, err := state.Get(0)

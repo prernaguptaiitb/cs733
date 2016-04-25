@@ -287,13 +287,14 @@ func serverMain(id int, restartFlag string) {
 	// make raft server object
 	raftconf := makeRaftNetConfig(conf)
 
+//	fmt.Println("Before")
 	if restartFlag == "true"{
 		server.rn = RestartNode(id,raftconf)
 	}else{
 		server.rn = BringNodeUp(id,raftconf)
 	}
 
-	
+//	fmt.Println("After")
 	
 	// start listening on raft commit channel
 	go server.ListenCommitChannel()

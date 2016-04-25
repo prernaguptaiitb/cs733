@@ -67,10 +67,13 @@ func (rn *RaftNode) StateStoreHandler(ac StateStore) {
 	//	fmt.Printf("%v StateStore generated\n", rn.rc.Id)
 	stateFile := rn.rc.StateDir + "/" + "mystate"
 	state, err := log.Open(stateFile)
+	state.RegisterSampleEntry(SMState{})
 	defer state.Close()
 	assert(err == nil)
 	state.TruncateToEnd(0)
 	ss := SMState{State: ac.State, CurrentTerm: ac.Term, VotedFor: ac.VotedFor}
 	err = state.Append(ss)
 	assert(err == nil)
+
+
 }
