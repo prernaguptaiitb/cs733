@@ -668,19 +668,23 @@ func Test_LeaderMultipleFailure(t *testing.T) {
 	for err == nil && m.Kind == 'R' {
 		leader = string(m.Contents)
 		cl = Redirect(t, m, cl)
+		//		fmt.Printf("redirected to: %v\n", string(m.Contents))
 		m, err = cl.write("cloudSuspense", "zoo", 0)
 	}
 	expect(t, m, &Msg{Kind: 'O'}, "Test_LeaderMultipleFailure: Write CloudSuspense success", err)
-	time.Sleep(1 * time.Second)
+
+	m, err = cl.read("cloudSuspense")
+	expect(t, m, &Msg{Kind: 'C', Contents: []byte("zoo")}, "Test_LeaderMultipleFailure: cloudSuspense read 0", err)
 
 	//Kill the leader
 	leaderId := leader[len(leader)-1:]
 	l, _ := strconv.Atoi(leaderId)
 	KillServer(l)
+
 	previousLeader := l
 
 	// wait for few seconds for one of the node to timeout and a new leader to get elected
-	time.Sleep(8 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	//system should still work
 	if l == 1 {
@@ -691,14 +695,17 @@ func Test_LeaderMultipleFailure(t *testing.T) {
 		leader = "localhost:9001"
 	}
 
-	m, err = cl.write("DSystems", "zoo", 0)
+	m, err = cl.write("Dsystems", "zoo", 0)
 	for err == nil && m.Kind == 'R' {
 		leader = string(m.Contents)
 		cl = Redirect(t, m, cl)
+		//		fmt.Printf("redirected to: %v\n", string(m.Contents))
 		m, err = cl.write("Dsystems", "zoo", 0)
 	}
 	expect(t, m, &Msg{Kind: 'O'}, "Test_LeaderMultipleFailure : DSystemsSuccess", err)
-	time.Sleep(3 * time.Second)
+
+	m, err = cl.read("Dsystems")
+	expect(t, m, &Msg{Kind: 'C', Contents: []byte("zoo")}, "Test_LeaderMultipleFailure: DSystems read 0", err)
 
 	// Now kill the leader again
 	leaderId = leader[len(leader)-1:]
@@ -706,7 +713,7 @@ func Test_LeaderMultipleFailure(t *testing.T) {
 	KillServer(l)
 
 	// wait for few seconds for one of the node to timeout and a new leader to get elected.
-	time.Sleep(8 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	//system should still work
 	if l != 1 && previousLeader != 1 {
@@ -724,6 +731,7 @@ func Test_LeaderMultipleFailure(t *testing.T) {
 	for err == nil && m.Kind == 'R' {
 		leader = string(m.Contents)
 		cl = Redirect(t, m, cl)
+		//		fmt.Printf("redirected to: %v\n", string(m.Contents))
 		m, err = cl.delete("cloudSuspense")
 	}
 	expect(t, m, &Msg{Kind: 'O'}, "Test_LeaderMultipleFailure : DeletecloudSuspensesuccess", err)
@@ -732,6 +740,7 @@ func Test_LeaderMultipleFailure(t *testing.T) {
 	m, err = cl.write("cs733net", data, 0)
 	for err == nil && m.Kind == 'R' {
 		cl = Redirect(t, m, cl)
+		//		fmt.Printf("redirected to: %v\n", string(m.Contents))
 		m, err = cl.write("cs733net", data, 0)
 
 	}
@@ -767,13 +776,14 @@ func Test_LeaderMultipleFailure(t *testing.T) {
 	m, err = cl.delete("Dsystems")
 	for err == nil && m.Kind == 'R' {
 		cl = Redirect(t, m, cl)
+		//		fmt.Printf("redirected to: %v\n", string(m.Contents))
 		m, err = cl.delete("Dsystems")
 	}
 	expect(t, m, &Msg{Kind: 'O'}, "Test_LeaderMultipleFailure : DeleteDSystemssuccess", err)
 
 	// Bring back the previous leader
 	StartServer(previousLeader, "true")
-	time.Sleep(5 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	follower := "localhost:900" + strconv.Itoa(previousLeader)
 	// make client connection with the follower and read all the above changes
@@ -783,8 +793,9 @@ func Test_LeaderMultipleFailure(t *testing.T) {
 	m, err = cl.read("cs733net")
 	expect(t, m, &Msg{Kind: 'C', Contents: []byte("Cloud fun")}, "Test_LeaderMultipleFailure: Cs733 read", err)
 
-	m, err = cl.read("DSystems")
+	m, err = cl.read("Dsystems")
 	expect(t, m, &Msg{Kind: 'F'}, "file not found", err)
+	//	expect(t, m, &Msg{Kind: 'C', Contents: []byte("zoo")}, "Test_LeaderMultipleFailure: DSystems read", err)
 
 	m, err = cl.read("cloudSuspense")
 	expect(t, m, &Msg{Kind: 'F'}, "file not found", err)
